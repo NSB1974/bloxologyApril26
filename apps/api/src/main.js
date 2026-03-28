@@ -1,5 +1,8 @@
 import dotenv from 'dotenv';
 dotenv.config();
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { existsSync, readFileSync } from 'fs';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -58,13 +61,39 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use(baseRpcErrorHandler);
 
-app.use('/', routes());
+const appRoutes = routes();
+app.use('/', appRoutes);
+app.use('/hcgi/api', appRoutes);
 
 app.use(errorMiddleware);
 
-app.use((req, res) => {
-	res.status(404).json({ error: 'Route not found' });
-});
+const isProduction = process.env.NODE_ENV === 'production';
+
+if (isProduction) {
+	const __filename = fileURLToPath(import.meta.url);
+	const __dirname = path.dirname(__filename);
+	const webDistPath = path.resolve(__dirname, '../../../dist/apps/web');
+
+	if (!existsSync(webDistPath)) {
+		logger.error(`[Startup] Web dist directory not found at ${webDistPath}. Run 'npm run build' before starting in production.`);
+		process.exit(1);
+	}
+
+	const indexHtml = readFileSync(path.join(webDistPath, 'index.html'), 'utf8');
+
+	app.use(express.static(webDistPath));
+
+	app.use((req, res, next) => {
+		if (req.path.startsWith('/hcgi/api') || path.extname(req.path)) {
+			return next();
+		}
+		res.type('html').send(indexHtml);
+	});
+} else {
+	app.use((req, res) => {
+		res.status(404).json({ error: 'Route not found' });
+	});
+}
 
 const port = process.env.PORT || 3001;
 
