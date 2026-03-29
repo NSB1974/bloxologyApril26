@@ -16,6 +16,12 @@ logger.info(`[Startup] CUSTOM_RPC_ENDPOINT environment variable: ${process.env.C
 logger.info(`[Startup] JWT_SECRET loading status: ${process.env.JWT_SECRET ? 'loaded' : 'not loaded'}`);
 logger.info(`[Startup] ETHERSCAN_API_KEY loading status: ${process.env.ETHERSCAN_API_KEY ? 'loaded' : 'not loaded'}`);
 
+const REQUIRED_ENV_VARS = ['JWT_SECRET', 'ETHERSCAN_API_KEY', 'ALCHEMY_API_KEY'];
+const missingVars = REQUIRED_ENV_VARS.filter((v) => !process.env[v]);
+if (missingVars.length > 0) {
+	logger.error(`[Startup] Missing required environment variables: ${missingVars.join(', ')}. Set them before starting the server.`);
+	process.exit(1);
+}
 
 const app = express();
 

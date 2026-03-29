@@ -42,13 +42,17 @@ router.post('/verify-signature', async (req, res) => {
   }
 
   // Generate JWT token
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET environment variable is not set');
+  }
+
   const jwtToken = jwt.sign(
     {
       address: address.toLowerCase(),
       walletType,
       iat: Math.floor(Date.now() / 1000),
     },
-    process.env.JWT_SECRET || 'your-secret-key',
+    process.env.JWT_SECRET,
     { expiresIn: '7d' }
   );
 
