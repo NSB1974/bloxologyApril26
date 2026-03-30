@@ -15,9 +15,6 @@
   "workspaces": [
     "apps/*"
   ],
-  "dependencies": {
-    "concurrently": "^9.2.1"
-  },
   "overrides": {
     "glob": "^10.6.0"
   }
