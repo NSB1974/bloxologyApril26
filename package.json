@@ -7,10 +7,10 @@
   },
   "scripts": {
     "prestart": "node scripts/preflight.mjs",
-    "dev": "concurrently --kill-others --raw \"npm run dev --prefix apps/web\" \"npm run dev --prefix apps/api\"",
-    "build": "npm run build --prefix apps/web",
+    "dev": "concurrently --kill-others --raw \"npm run dev --workspace web\" \"npm run dev --workspace api\"",
+    "build": "npm run build --workspace web",
     "start": "node apps/api/src/main.js",
-    "lint": "concurrently --raw \"npm run lint --prefix apps/web\" \"npm run lint --prefix apps/api\""
+    "lint": "concurrently --raw \"npm run lint --workspace web\" \"npm run lint --workspace api\""
   },
   "workspaces": [
     "apps/*"

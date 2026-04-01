@@ -2,13 +2,18 @@
 import React from 'react';
 import { Route, Routes, BrowserRouter as Router } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
+import { WagmiProvider } from 'wagmi';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WalletProvider } from '@/contexts/WalletContext.jsx';
 import { BaseAuthProvider } from '@/contexts/BaseAuthContext.jsx';
+import { wagmiConfig } from '@/lib/wagmiConfig.js';
 import { Toaster } from '@/components/ui/sonner';
 import ScrollToTop from '@/components/ScrollToTop.jsx';
 import Header from '@/components/Header.jsx';
 import Footer from '@/components/Footer.jsx';
 import ProtectedRoute from '@/components/ProtectedRoute.jsx';
+
+const queryClient = new QueryClient();
 
 // Pages
 import HomePage from '@/pages/HomePage.jsx';
@@ -26,14 +31,16 @@ import DebugTokensPage from '@/pages/DebugTokensPage.jsx';
 
 function App() {
   return (
-    <WalletProvider>
-      <BaseAuthProvider>
-        <Router>
-          <ScrollToTop />
-          <div className="flex flex-col min-h-screen">
-            <Header />
-            <main className="flex-1 pt-16">
-              <AnimatePresence mode="wait">
+    <WagmiProvider config={wagmiConfig}>
+      <QueryClientProvider client={queryClient}>
+        <WalletProvider>
+          <BaseAuthProvider>
+            <Router>
+              <ScrollToTop />
+              <div className="flex flex-col min-h-screen">
+                <Header />
+                <main className="flex-1 pt-16">
+                  <AnimatePresence mode="wait">
                 <Routes>
                   {/* Public Routes */}
                   <Route path="/" element={<HomePage />} />
@@ -110,8 +117,10 @@ function App() {
           </div>
           <Toaster />
         </Router>
-      </BaseAuthProvider>
-    </WalletProvider>
+          </BaseAuthProvider>
+        </WalletProvider>
+      </QueryClientProvider>
+    </WagmiProvider>
   );
 }
 

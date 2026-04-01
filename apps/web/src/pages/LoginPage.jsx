@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import { Wallet, Shield, Zap } from 'lucide-react';
 import { useWallet } from '@/contexts/WalletContext.jsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import WalletConnector from '@/components/WalletConnector.jsx';
+import WalletConnectorWagmi from '@/components/WalletConnectorWagmi.jsx';
 
 const LoginPage = () => {
   const { isConnected } = useWallet();
@@ -49,7 +49,7 @@ const LoginPage = () => {
               </CardHeader>
               <CardContent className="space-y-8">
                 
-                <WalletConnector onSuccess={() => navigate(from, { replace: true })} />
+                <WalletConnectorWagmi onSuccess={() => navigate(from, { replace: true })} />
 
                 <div className="grid grid-cols-2 gap-4 pt-6 border-t border-border/50">
                   <div className="flex flex-col items-center text-center space-y-2 p-4 glass-card rounded-xl">

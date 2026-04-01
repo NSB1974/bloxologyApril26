@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Loader2, ShieldCheck, AlertCircle } from 'lucide-react';
-import { getWalletProvider, generateNonce, requestSignature } from '@/utils/walletIntegration';
+import { createSiweMessage, generateSiweNonce } from 'viem/siwe';
+import { getWalletProvider, requestSignature } from '@/utils/walletIntegration';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -31,7 +32,7 @@ const SignatureRequestFlow = ({ walletName, onSignatureSuccess, onSignatureError
         const userAddress = accounts[0];
         setAddress(userAddress);
         
-        const currentNonce = generateNonce();
+        const currentNonce = generateSiweNonce();
         setNonce(currentNonce);
         setStep('signing');
 
@@ -51,14 +52,29 @@ const SignatureRequestFlow = ({ walletName, onSignatureSuccess, onSignatureError
       setError(null);
       
       const provider = getWalletProvider(walletName);
-      const message = `Welcome to Bloxology!\n\nClick to sign in and accept the Terms of Service.\n\nThis request will not trigger a blockchain transaction or cost any gas fees.\n\nWallet Address:\n${address}\n\nNonce:\n${nonce}`;
+      const chainIdHex = await provider.request({ method: 'eth_chainId' });
+      const chainId = Number.parseInt(chainIdHex, 16) || 1;
+      const issuedAt = new Date().toISOString();
+      const message = createSiweMessage({
+        address,
+        chainId,
+        domain: window.location.host,
+        nonce,
+        uri: window.location.origin,
+        version: '1',
+        issuedAt,
+        statement: 'Sign in to Bloxology.'
+      });
       
       const signature = await requestSignature(provider, message, address);
       
       onSignatureSuccess({
         address,
         signature,
+        message,
         nonce,
+        chainId,
+        issuedAt,
         walletType: walletName
       });
       

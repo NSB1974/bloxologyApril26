@@ -71,6 +71,17 @@ export const DEFAULT_NETWORKS = {
     color: 'text-red-600',
     isCustom: false
   },
+  84532: {
+    id: 84532,
+    name: 'Base Sepolia',
+    icon: Layers,
+    rpcUrl: 'https://sepolia.base.org',
+    blockExplorer: 'https://sepolia.basescan.org',
+    currencySymbol: 'ETH',
+    isTestnet: true,
+    color: 'text-blue-400',
+    isCustom: false
+  },
   11155111: {
     id: 11155111,
     name: 'Sepolia Testnet',
