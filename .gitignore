@@ -11,3 +11,5 @@ app.tar.gz
 *.zip
 *.code-workspace
 hostinger-deploy/
+.vercel
+.env*.local
