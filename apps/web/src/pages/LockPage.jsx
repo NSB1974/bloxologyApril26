@@ -19,9 +19,9 @@ import TokenSelector from '@/components/TokenSelector.jsx';
 import TransactionStatus from '@/components/TransactionStatus.jsx';
 
 const DEFAULT_TOKENS = [
-  { symbol: 'BLOX', name: 'Bloxology Token', address: '0xBLOX000000000000000000000000000000000000' },
-  { symbol: 'ETH', name: 'Ethereum', address: '0x0000000000000000000000000000000000000000' },
-  { symbol: 'USDC', name: 'USD Coin', address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' }
+  { symbol: 'ETH', name: 'Ethereum', address: '0x4200000000000000000000000000000000000006' },
+  { symbol: 'USDC', name: 'USD Coin', address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
+  { symbol: 'DAI', name: 'Dai Stablecoin', address: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb' }
 ];
 
 const DURATIONS = [

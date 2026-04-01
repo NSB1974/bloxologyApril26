@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import logger from '../utils/logger.js';
 
 const router = express.Router();
+const JWT_SIGNING_SECRET = process.env.WEB3_AUTH_SECRET || process.env.JWT_SECRET || 'your-secret-key';
 
 router.post('/verify-signature', async (req, res) => {
   const { signature, address, walletType, nonce, message } = req.body;
@@ -75,7 +76,7 @@ router.post('/verify-signature', async (req, res) => {
         walletType,
         iat: Math.floor(Date.now() / 1000),
       },
-      process.env.JWT_SECRET || 'your-secret-key',
+      JWT_SIGNING_SECRET,
       { expiresIn: '7d' }
     );
 

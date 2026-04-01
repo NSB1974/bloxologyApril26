@@ -54,7 +54,7 @@ const SignatureRequestFlow = ({ walletName, onSignatureSuccess, onSignatureError
       const provider = getWalletProvider(walletName);
       const chainIdHex = await provider.request({ method: 'eth_chainId' });
       const chainId = Number.parseInt(chainIdHex, 16) || 1;
-      const issuedAt = new Date().toISOString();
+      const issuedAt = new Date();
       const message = createSiweMessage({
         address,
         chainId,
@@ -74,7 +74,7 @@ const SignatureRequestFlow = ({ walletName, onSignatureSuccess, onSignatureError
         message,
         nonce,
         chainId,
-        issuedAt,
+        issuedAt: issuedAt.toISOString(),
         walletType: walletName
       });
       

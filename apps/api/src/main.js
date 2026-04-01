@@ -19,6 +19,8 @@ import logger from './utils/logger.js';
 logger.info(`[Startup] CUSTOM_RPC_ENDPOINT environment variable: ${process.env.CUSTOM_RPC_ENDPOINT}`);
 logger.info(`[Startup] JWT_SECRET loading status: ${process.env.JWT_SECRET ? 'loaded' : 'not loaded'}`);
 logger.info(`[Startup] ETHERSCAN_API_KEY loading status: ${process.env.ETHERSCAN_API_KEY ? 'loaded' : 'not loaded'}`);
+logger.info(`[Startup] WEB3_AUTH_API_KEY loading status: ${process.env.WEB3_AUTH_API_KEY ? 'loaded' : 'not loaded'}`);
+logger.info(`[Startup] WEB3_AUTH_SECRET loading status: ${process.env.WEB3_AUTH_SECRET ? 'loaded' : 'not loaded'}`);
 
 
 const app = express();

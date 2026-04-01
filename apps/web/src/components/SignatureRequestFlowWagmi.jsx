@@ -23,7 +23,7 @@ const SignatureRequestFlow = ({ address, onSignatureSuccess, onCancel }) => {
         const currentNonce = generateSiweNonce();
         setNonce(currentNonce);
         
-        const issuedAt = new Date().toISOString();
+        const issuedAt = new Date();
         const siweMessage = createSiweMessage({
           address: address,
           chainId: chainId || 1,
