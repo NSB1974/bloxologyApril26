@@ -84,6 +84,12 @@ const ConnectedWalletDashboard = () => {
     return null;
   };
 
+  const getPriceSourceLabel = (token) => {
+    if (token?.priceAvailable === false) return 'No source';
+    if (token?.priceSource === 'coingecko-contract') return 'Estimated source';
+    return 'Live source';
+  };
+
   return (
     <div className="min-h-screen flex items-start justify-center py-12 px-4 sm:px-6 lg:px-8">
       <motion.div
@@ -276,6 +282,7 @@ const ConnectedWalletDashboard = () => {
                             <div>
                               <p className="font-bold text-[var(--text-primary)]">{token.token}</p>
                               <p className="text-xs text-[var(--text-secondary)] font-medium">{parseFloat(token.balance).toFixed(4)}</p>
+                              <p className="text-[10px] text-[var(--text-muted)]">{getPriceSourceLabel(token)}</p>
                             </div>
                           </div>
                           <div className="text-right">
