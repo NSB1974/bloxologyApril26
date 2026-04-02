@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import FeeDisplay from '@/components/FeeDisplay.jsx';
 import { calculateSwapFee, FEE_RECIPIENT, FEE_CONFIG } from '@/utils/feeCalculator.js';
@@ -32,6 +33,7 @@ const TokenSwap = () => {
   const [isSwapping, setIsSwapping] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
 
   // Reset state when active address changes
   useEffect(() => {
@@ -237,6 +239,34 @@ const TokenSwap = () => {
                     <p className="text-[11px] font-medium text-[var(--text-secondary)]">
                       Quote quality: mapped market pairs are live-priced, other contracts use estimated market lookup.
                     </p>
+                    <Dialog open={isPricingModalOpen} onOpenChange={setIsPricingModalOpen}>
+                      <DialogTrigger asChild>
+                        <button
+                          type="button"
+                          className="ml-auto rounded border border-border/40 px-1.5 py-0.5 text-[10px] font-semibold text-[var(--text-secondary)] transition-colors hover:border-primary/40 hover:text-[var(--text-primary)]"
+                        >
+                          Details
+                        </button>
+                      </DialogTrigger>
+                      <DialogContent className="glass-card-strong border-border/50 sm:max-w-md">
+                        <DialogHeader>
+                          <DialogTitle className="text-[var(--text-primary)]">Quote Pricing Details</DialogTitle>
+                          <DialogDescription className="text-[var(--text-secondary)]">
+                            Swap quotes combine token market prices and estimated execution assumptions.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-3 text-sm">
+                          <div className="rounded-lg border border-primary/20 bg-primary/10 p-3">
+                            <p className="font-semibold text-[var(--text-primary)]">Mapped market source</p>
+                            <p className="text-[var(--text-secondary)]">Direct market mapping for known tokens, typically highest-confidence quotes.</p>
+                          </div>
+                          <div className="rounded-lg border border-amber-500/25 bg-amber-500/10 p-3">
+                            <p className="font-semibold text-amber-300">Estimated market source</p>
+                            <p className="text-[var(--text-secondary)]">Resolved by token contract lookup and may differ from executable DEX output at trade time.</p>
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
                   </div>
                 </div>
 

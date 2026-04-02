@@ -6,6 +6,7 @@ import { useBaseAuth, useNetwork } from '@/contexts/BaseAuthContext.jsx';
 import apiServerClient from '@/lib/apiServerClient.js';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
 const ConnectedWalletDashboard = () => {
@@ -21,6 +22,7 @@ const ConnectedWalletDashboard = () => {
   const [copied, setCopied] = useState(null);
   const [portfolioData, setPortfolioData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [isPricingInfoOpen, setIsPricingInfoOpen] = useState(false);
 
   const fetchPortfolio = async () => {
     if (!activeAddress) return;
@@ -221,6 +223,44 @@ const ConnectedWalletDashboard = () => {
                         <span>Estimated = contract-based market price</span>
                         <span className="opacity-60">|</span>
                         <span>Price unavailable = no market feed</span>
+                        <Dialog open={isPricingInfoOpen} onOpenChange={setIsPricingInfoOpen}>
+                          <DialogTrigger asChild>
+                            <button
+                              type="button"
+                              className="rounded border border-border/40 px-1.5 py-0.5 text-[10px] font-semibold text-[var(--text-secondary)] transition-colors hover:border-primary/40 hover:text-[var(--text-primary)]"
+                            >
+                              Details
+                            </button>
+                          </DialogTrigger>
+                          <DialogContent className="glass-card-strong border-border/50 sm:max-w-md">
+                            <DialogHeader>
+                              <DialogTitle className="text-[var(--text-primary)]">Pricing Sources</DialogTitle>
+                              <DialogDescription className="text-[var(--text-secondary)]">
+                                Portfolio valuations use token prices from two source tiers:
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-3 text-sm">
+                              <div className="rounded-lg border border-primary/20 bg-primary/10 p-3">
+                                <p className="font-semibold text-[var(--text-primary)]">Live mapped source</p>
+                                <p className="text-[var(--text-secondary)]">
+                                  Used for known core tokens with direct market mapping and high-confidence pricing.
+                                </p>
+                              </div>
+                              <div className="rounded-lg border border-amber-500/25 bg-amber-500/10 p-3">
+                                <p className="font-semibold text-amber-300">Estimated source</p>
+                                <p className="text-[var(--text-secondary)]">
+                                  Used when pricing is resolved by token contract lookup; values can lag or vary by market coverage.
+                                </p>
+                              </div>
+                              <div className="rounded-lg border border-destructive/25 bg-destructive/10 p-3">
+                                <p className="font-semibold text-destructive/90">Price unavailable</p>
+                                <p className="text-[var(--text-secondary)]">
+                                  No reliable market feed was returned for that token, so valuation is shown as zero.
+                                </p>
+                              </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
                       </div>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
