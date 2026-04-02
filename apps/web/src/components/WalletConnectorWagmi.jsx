@@ -18,11 +18,22 @@ const WalletConnectorWagmi = ({ onSuccess }) => {
   const handleConnectWallet = async (walletConnector) => {
     clearError();
     setLocalError(null);
+
+    // If wallet is already connected, proceed directly to ownership signature.
+    if (isConnected && address) {
+      setNeedsSignature(true);
+      return;
+    }
+
     try {
       await connectAsync({ connector: walletConnector });
       setNeedsSignature(true);
     } catch (err) {
       const message = err?.message || 'Failed to connect wallet';
+      if (message.toLowerCase().includes('already connected')) {
+        setNeedsSignature(true);
+        return;
+      }
       if (message.toLowerCase().includes('provider not found') || message.toLowerCase().includes('connector not found')) {
         setLocalError('No wallet provider detected in this browser. Open the site in MetaMask/Coinbase Wallet browser, or install the extension and refresh.');
       } else {
