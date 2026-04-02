@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Copy, Check, LogOut, RefreshCw, Wallet, Activity, Layers, ArrowRightLeft } from 'lucide-react';
+import { Copy, Check, LogOut, RefreshCw, Wallet, Activity, Layers, ArrowRightLeft, Info } from 'lucide-react';
 import { useBaseAuth, useNetwork } from '@/contexts/BaseAuthContext.jsx';
 import apiServerClient from '@/lib/apiServerClient.js';
 import { Button } from '@/components/ui/button';
@@ -214,7 +214,15 @@ const ConnectedWalletDashboard = () => {
 
                 {portfolioData && portfolioData.balances.length > 0 ? (
                   <div className="space-y-3">
-                    <h4 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider">Assets</h4>
+                    <div className="flex items-center justify-between gap-3">
+                      <h4 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider">Assets</h4>
+                      <div className="flex items-center gap-2 text-[10px] text-[var(--text-secondary)]">
+                        <Info className="h-3.5 w-3.5" />
+                        <span>Estimated = contract-based market price</span>
+                        <span className="opacity-60">|</span>
+                        <span>Price unavailable = no market feed</span>
+                      </div>
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {portfolioData.balances.map((token) => {
                         const priceBadge = getPriceBadge(token);

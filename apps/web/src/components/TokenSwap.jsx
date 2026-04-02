@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowDownUp, Loader2, CheckCircle, AlertCircle, Settings } from 'lucide-react';
+import { ArrowDownUp, Loader2, CheckCircle, AlertCircle, Settings, Info } from 'lucide-react';
 import apiServerClient from '@/lib/apiServerClient.js';
 import { useBaseAuth, useNetwork } from '@/contexts/BaseAuthContext.jsx';
 import { Button } from '@/components/ui/button';
@@ -232,6 +232,12 @@ const TokenSwap = () => {
                       <p className="text-xs font-semibold text-amber-300">Estimated pricing is being used for one or both tokens.</p>
                     </div>
                   )}
+                  <div className="flex items-center gap-2 rounded-lg border border-border/30 bg-white/5 px-3 py-2">
+                    <Info className="h-3.5 w-3.5 text-[var(--text-secondary)]" />
+                    <p className="text-[11px] font-medium text-[var(--text-secondary)]">
+                      Quote quality: mapped market pairs are live-priced, other contracts use estimated market lookup.
+                    </p>
+                  </div>
                 </div>
 
                 <FeeDisplay 
