@@ -72,6 +72,16 @@ const ConnectedWalletDashboard = () => {
     }).format(val);
   };
 
+  const getPriceBadge = (token) => {
+    if (token?.priceAvailable === false) {
+      return { label: 'Price unavailable', className: 'text-destructive/90 bg-destructive/10 border-destructive/20' };
+    }
+    if (token?.priceSource === 'coingecko-contract') {
+      return { label: 'Estimated', className: 'text-amber-300 bg-amber-500/10 border-amber-500/20' };
+    }
+    return null;
+  };
+
   return (
     <div className="min-h-screen flex items-start justify-center py-12 px-4 sm:px-6 lg:px-8">
       <motion.div
@@ -206,7 +216,10 @@ const ConnectedWalletDashboard = () => {
                   <div className="space-y-3">
                     <h4 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider">Assets</h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {portfolioData.balances.map((token) => (
+                      {portfolioData.balances.map((token) => {
+                        const priceBadge = getPriceBadge(token);
+
+                        return (
                         <div key={token.token} className="glass-card p-4 rounded-xl flex justify-between items-center hover:border-primary/30 transition-colors">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center font-bold text-sm border border-white/5">
@@ -220,9 +233,15 @@ const ConnectedWalletDashboard = () => {
                           <div className="text-right">
                             <p className="font-bold text-[var(--text-primary)]">{formatCurrency(token.value)}</p>
                             <p className="text-xs text-[var(--text-secondary)] font-medium">@{formatCurrency(token.price)}</p>
+                            {priceBadge && (
+                              <span className={`mt-1 inline-block rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${priceBadge.className}`}>
+                                {priceBadge.label}
+                              </span>
+                            )}
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 ) : (
