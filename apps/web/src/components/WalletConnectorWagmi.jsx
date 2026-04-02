@@ -78,7 +78,6 @@ const WalletConnectorWagmi = ({ onSuccess }) => {
         onSignatureSuccess={handleSignatureSuccess}
         onCancel={() => {
           setNeedsSignature(false);
-          setSelectedWallet(null);
         }}
       />
     );
@@ -114,7 +113,9 @@ const WalletConnectorWagmi = ({ onSuccess }) => {
             </div>
             <div className="flex-1">
               <h3 className="font-bold text-[var(--text-primary)]">{connector.name}</h3>
-              <p className="text-sm text-[var(--text-secondary)]">Connect using {connector.name}</p>
+              <p className="text-sm text-[var(--text-secondary)]">
+                {connector.name === 'Injected' ? 'Connect using browser wallet extension' : `Connect using ${connector.name}`}
+              </p>
             </div>
             {isPending && (
               <Loader2 className="h-5 w-5 animate-spin text-primary" />
