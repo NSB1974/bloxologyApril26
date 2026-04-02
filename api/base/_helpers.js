@@ -1,5 +1,6 @@
 const BASE_RPC_ENDPOINT = process.env.BASE_RPC_ENDPOINT || 'https://base-rpc.publicnode.com';
 const COINGECKO_BASE = 'https://api.coingecko.com/api/v3/simple/price';
+const COINGECKO_TOKEN_PRICE_BASE = 'https://api.coingecko.com/api/v3/simple/token_price/base';
 
 const PRICE_CACHE_TTL_MS = 60 * 1000;
 const TOKEN_META_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -145,23 +146,46 @@ const getNativeBalance = async (walletAddress) => {
 const getUsdPrice = async (tokenAddress) => {
   const key = tokenAddress.toLowerCase();
   const id = TOKEN_PRICE_IDS[key];
-  if (!id) return 0;
+  const cacheKey = id ? `id:${id}` : `addr:${key}`;
 
-  const cached = priceCache.get(id);
+  const cached = priceCache.get(cacheKey);
   if (shouldUseCache(cached, PRICE_CACHE_TTL_MS)) {
     return cached.value;
   }
 
-  const url = `${COINGECKO_BASE}?ids=${encodeURIComponent(id)}&vs_currencies=usd`;
-  const response = await fetch(url, { headers: { Accept: 'application/json' } });
-  if (!response.ok) {
-    throw new Error(`CoinGecko request failed: ${response.status}`);
+  if (id) {
+    const url = `${COINGECKO_BASE}?ids=${encodeURIComponent(id)}&vs_currencies=usd`;
+    const response = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (!response.ok) {
+      throw new Error(`CoinGecko request failed: ${response.status}`);
+    }
+
+    const payload = await response.json();
+    const value = Number(payload?.[id]?.usd || 0);
+    const priceResult = {
+      value,
+      source: 'coingecko-id',
+      available: value > 0,
+    };
+    priceCache.set(cacheKey, { ts: nowMs(), value: priceResult });
+    return priceResult;
   }
 
-  const payload = await response.json();
-  const value = Number(payload?.[id]?.usd || 0);
-  priceCache.set(id, { ts: nowMs(), value });
-  return value;
+  const tokenUrl = `${COINGECKO_TOKEN_PRICE_BASE}?contract_addresses=${encodeURIComponent(key)}&vs_currencies=usd`;
+  const tokenResponse = await fetch(tokenUrl, { headers: { Accept: 'application/json' } });
+  if (!tokenResponse.ok) {
+    throw new Error(`CoinGecko token price request failed: ${tokenResponse.status}`);
+  }
+
+  const tokenPayload = await tokenResponse.json();
+  const value = Number(tokenPayload?.[key]?.usd || 0);
+  const priceResult = {
+    value,
+    source: 'coingecko-contract',
+    available: value > 0,
+  };
+  priceCache.set(cacheKey, { ts: nowMs(), value: priceResult });
+  return priceResult;
 };
 
 module.exports = {

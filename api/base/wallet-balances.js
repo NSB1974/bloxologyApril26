@@ -31,14 +31,16 @@ module.exports = async function handler(req, res) {
           ]);
           const numericBalance = Number(balanceResult.balance);
           const value = Number.isFinite(numericBalance)
-            ? Number((numericBalance * usdPrice).toFixed(2))
+            ? Number((numericBalance * usdPrice.value).toFixed(2))
             : 0;
 
           return {
             token: token.symbol,
             balance: balanceResult.balance,
-            price: Number(usdPrice.toFixed(6)),
+            price: Number(usdPrice.value.toFixed(6)),
             value,
+            priceAvailable: usdPrice.available,
+            priceSource: usdPrice.source,
           };
         } catch (_) {
           return {
@@ -46,6 +48,8 @@ module.exports = async function handler(req, res) {
             balance: '0',
             price: 0,
             value: 0,
+            priceAvailable: false,
+            priceSource: 'unavailable',
           };
         }
       })

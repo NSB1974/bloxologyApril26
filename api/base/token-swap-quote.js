@@ -35,7 +35,7 @@ module.exports = async function handler(req, res) {
       getUsdPrice('0x4200000000000000000000000000000000000006'),
     ]);
 
-    if (fromPrice <= 0 || toPrice <= 0) {
+    if (fromPrice.value <= 0 || toPrice.value <= 0) {
       return json(res, 400, {
         success: false,
         data: null,
@@ -44,7 +44,7 @@ module.exports = async function handler(req, res) {
     }
 
     const priceImpactPercent = 0.5;
-    const exchangeRate = fromPrice / toPrice;
+    const exchangeRate = fromPrice.value / toPrice.value;
     const grossOutput = parsedAmount * exchangeRate;
     const netOutput = grossOutput * (1 - priceImpactPercent / 100);
     const estimatedGasEth = 0.00015;
@@ -56,9 +56,13 @@ module.exports = async function handler(req, res) {
         exchangeRate: exchangeRate.toFixed(6),
         gasFee: estimatedGasEth.toFixed(6),
         slippage: priceImpactPercent.toFixed(2),
-        fromUsd: fromPrice,
-        toUsd: toPrice,
-        estimatedGasUsd: Number((estimatedGasEth * ethPrice).toFixed(2)),
+        fromUsd: fromPrice.value,
+        toUsd: toPrice.value,
+        estimatedGasUsd: Number((estimatedGasEth * ethPrice.value).toFixed(2)),
+        pricing: {
+          fromTokenSource: fromPrice.source,
+          toTokenSource: toPrice.source,
+        },
       },
       error: null,
     });
