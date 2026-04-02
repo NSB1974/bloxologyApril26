@@ -5,6 +5,10 @@
   "installCommand": "npm install --include=dev",
   "rewrites": [
     {
+      "source": "/hcgi/api/(.*)",
+      "destination": "/api/$1"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
