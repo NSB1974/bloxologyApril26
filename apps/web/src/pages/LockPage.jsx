@@ -44,7 +44,10 @@ const LockPage = () => {
   const [txError, setTxError] = useState(null);
   const [history, setHistory] = useState([]);
 
-  const allTokens = [...DEFAULT_TOKENS, ...customTokens];
+  const allTokens = [
+    ...DEFAULT_TOKENS,
+    ...customTokens.filter(t => Number(t.chainId) === Number(selectedNetwork.id))
+  ];
 
   useEffect(() => {
     const savedHistory = localStorage.getItem('lock_history');

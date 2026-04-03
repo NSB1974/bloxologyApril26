@@ -49,8 +49,13 @@ const TokenLocker = () => {
         `/base/token-balance?walletAddress=${activeAddress || '0x0'}&tokenAddress=${tokenAddress.trim()}&chainId=${selectedNetwork.id}`
       );
 
-      const data = await response.json();
-      
+      let data;
+      try {
+        data = await response.json();
+      } catch (_) {
+        throw new Error('Server returned an invalid response.');
+      }
+
       if (!response.ok || !data.success) {
         throw new Error(data.error || 'Failed to check token balance');
       }
