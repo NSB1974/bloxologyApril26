@@ -24,7 +24,7 @@ const DEFAULT_TOKENS = [
 
 const TokenSwap = () => {
   const { activeAddress } = useBaseAuth();
-  const { selectedNetwork } = useNetwork();
+  const { selectedNetwork, customTokens } = useNetwork();
   const [fromToken, setFromToken] = useState(DEFAULT_TOKENS[0].address);
   const [toToken, setToToken] = useState(DEFAULT_TOKENS[1].address);
   const [amount, setAmount] = useState('');
@@ -36,11 +36,24 @@ const TokenSwap = () => {
   const [error, setError] = useState(null);
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
 
-  // Reset state when active address changes
+  // Combine default tokens with custom tokens for current network
+  const availableTokens = [
+    ...DEFAULT_TOKENS,
+    ...customTokens.filter(t => t.chainId === selectedNetwork.id)
+  ];
+
+  // Reset state when active address or network changes
   useEffect(() => {
     setResult(null);
     setError(null);
-  }, [activeAddress]);
+    // Reset to default tokens if custom tokens were removed
+    if (!availableTokens.find(t => t.address === fromToken)) {
+      setFromToken(DEFAULT_TOKENS[0].address);
+    }
+    if (!availableTokens.find(t => t.address === toToken)) {
+      setToToken(DEFAULT_TOKENS[1].address);
+    }
+  }, [activeAddress, selectedNetwork.id, customTokens]);
 
   // Debounced quote fetching
   useEffect(() => {
@@ -148,7 +161,7 @@ const TokenSwap = () => {
         grossOut: quote.outputAmount,
         feePaid: feeAmount,
         netOut: netOutput,
-        toSymbol: DEFAULT_TOKENS.find(t => t.address === toToken)?.symbol || 'Tokens',
+        toSymbol: availableTokens.find(t => t.address === toToken)?.symbol || 'Tokens',
         swappedBy: activeAddress
       });
       setAmount('');
@@ -159,7 +172,7 @@ const TokenSwap = () => {
     }
   };
 
-  const toTokenSymbol = DEFAULT_TOKENS.find(t => t.address === toToken)?.symbol || '';
+  const toTokenSymbol = availableTokens.find(t => t.address === toToken)?.symbol || '';
   const feeAmount = quote ? Number(quote.feeAmount ?? calculateSwapFee(quote.outputAmount)) : 0;
   const netOutput = quote ? Number(quote.netOutputAmount ?? (parseFloat(quote.outputAmount) - feeAmount)) : 0;
 
@@ -190,7 +203,7 @@ const TokenSwap = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="glass-card-strong">
-                    {DEFAULT_TOKENS.map((token) => (
+                    {availableTokens.map((token) => (
                       <SelectItem key={token.address} value={token.address} className="font-bold">
                         {token.symbol}
                       </SelectItem>
@@ -231,7 +244,7 @@ const TokenSwap = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="glass-card-strong">
-                    {DEFAULT_TOKENS.map((token) => (
+                    {availableTokens.map((token) => (
                       <SelectItem key={token.address} value={token.address} className="font-bold">
                         {token.symbol}
                       </SelectItem>
