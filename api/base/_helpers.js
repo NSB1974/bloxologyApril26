@@ -190,6 +190,7 @@ const getUsdPrice = async (tokenAddress) => {
 
 module.exports = {
   TOKEN_PRICE_IDS,
+  formatUnits,
   getErc20Balance,
   getNativeBalance,
   getUsdPrice,
