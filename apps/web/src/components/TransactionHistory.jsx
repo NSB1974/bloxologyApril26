@@ -59,6 +59,8 @@ const TransactionHistory = ({ currentNetwork, walletAddress }) => {
   };
 
   useEffect(() => {
+    setCurrentPage(1);
+    setTransactions([]);
     fetchTransactions();
 
     // Auto-refresh every 20 seconds
@@ -90,9 +92,15 @@ const TransactionHistory = ({ currentNetwork, walletAddress }) => {
   };
 
   const formatAmount = (valueEth) => {
-    if (!valueEth || valueEth === '0') return '0.00';
-    const num = parseFloat(valueEth);
-    return num < 0.0001 ? '< 0.0001' : num.toFixed(4);
+    if (!valueEth) return '0.000000000';
+    const num = Number(valueEth);
+    if (!Number.isFinite(num) || num === 0) return '0.000000000';
+    if (Math.abs(num) < 0.000000001) return '< 0.000000001';
+
+    return num.toLocaleString(undefined, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 9,
+    });
   };
 
   const filteredTransactions = transactions.filter(tx => {
