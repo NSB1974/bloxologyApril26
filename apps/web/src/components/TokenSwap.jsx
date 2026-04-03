@@ -57,6 +57,7 @@ const TokenSwap = () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            fromAddress: activeAddress,
             fromToken,
             toToken,
             amount,
@@ -81,7 +82,7 @@ const TokenSwap = () => {
 
     const timeoutId = setTimeout(fetchQuote, 500);
     return () => clearTimeout(timeoutId);
-  }, [fromToken, toToken, amount, selectedNetwork.id]);
+  }, [fromToken, toToken, amount, selectedNetwork.id, activeAddress]);
 
   const handleSwapDirection = () => {
     setFromToken(toToken);
@@ -96,16 +97,52 @@ const TokenSwap = () => {
 
     setIsSwapping(true);
     setError(null);
-    
-    const feeAmount = calculateSwapFee(quote.outputAmount);
-    const netOutput = parseFloat(quote.outputAmount) - feeAmount;
-    
-    // Simulate swap execution delay using activeAddress
-    setTimeout(() => {
+
+    try {
+      if (!window.ethereum) {
+        throw new Error('Wallet provider not found. Please connect a wallet extension.');
+      }
+
+      if (!quote.execution) {
+        throw new Error('Live execution data unavailable for this quote. Try another token pair or reconnect wallet.');
+      }
+
+      let txHash = null;
+
+      if (quote.execution.type === 'transaction' && quote.execution.transaction) {
+        const txRequest = {
+          from: activeAddress,
+          ...quote.execution.transaction,
+        };
+        txHash = await window.ethereum.request({
+          method: 'eth_sendTransaction',
+          params: [txRequest],
+        });
+      } else if (quote.execution.type === 'calls' && Array.isArray(quote.execution.calls)) {
+        txHash = await window.ethereum.request({
+          method: 'wallet_sendCalls',
+          params: [
+            {
+              version: '1.0',
+              chainId: `0x${Number(selectedNetwork.id).toString(16)}`,
+              from: activeAddress,
+              calls: quote.execution.calls,
+            },
+          ],
+        });
+      }
+
+      if (!txHash) {
+        throw new Error('Wallet did not return a transaction hash.');
+      }
+
+      const feeAmount = calculateSwapFee(quote.outputAmount);
+      const netOutput = parseFloat(quote.outputAmount) - feeAmount;
+
       setIsSwapping(false);
       setResult({
-        message: `Swap executed successfully on ${selectedNetwork.name}`,
-        transactionHash: '0x' + Math.random().toString(16).slice(2, 42),
+        message: `Swap submitted on ${selectedNetwork.name}`,
+        transactionHash: txHash,
         amountIn: amount,
         grossOut: quote.outputAmount,
         feePaid: feeAmount,
@@ -115,7 +152,10 @@ const TokenSwap = () => {
       });
       setAmount('');
       setQuote(null);
-    }, 2000);
+    } catch (err) {
+      setError(err.message || 'Swap execution failed');
+      setIsSwapping(false);
+    }
   };
 
   const toTokenSymbol = DEFAULT_TOKENS.find(t => t.address === toToken)?.symbol || '';
@@ -181,7 +221,7 @@ const TokenSwap = () => {
                     <Loader2 className="h-6 w-6 animate-spin text-[var(--text-secondary)]" />
                   ) : (
                     <span className="text-3xl font-bold text-[var(--text-primary)]">
-                      {quote ? parseFloat(quote.outputAmount).toFixed(4) : '0.0'}
+                      {quote ? parseFloat(quote.outputAmount).toLocaleString(undefined, { maximumFractionDigits: 9 }) : '0.0'}
                     </span>
                   )}
                 </div>
@@ -234,6 +274,11 @@ const TokenSwap = () => {
                       <p className="text-xs font-semibold text-amber-300">Estimated pricing is being used for one or both tokens.</p>
                     </div>
                   )}
+                  {quote?.provider === 'alchemy' && (
+                    <div className="rounded-lg border border-accent/20 bg-accent/10 px-3 py-2">
+                      <p className="text-xs font-semibold text-accent">Live executable quote from Alchemy.</p>
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 rounded-lg border border-border/30 bg-white/5 px-3 py-2">
                     <Info className="h-3.5 w-3.5 text-[var(--text-secondary)]" />
                     <p className="text-[11px] font-medium text-[var(--text-secondary)]">
@@ -284,7 +329,7 @@ const TokenSwap = () => {
 
             <Button
               type="submit"
-              disabled={!quote || isSwapping || loadingQuote || fromToken === toToken || !activeAddress}
+              disabled={!quote || !quote.execution || isSwapping || loadingQuote || fromToken === toToken || !activeAddress}
               className="w-full h-14 mt-4 text-lg font-bold crypto-gradient text-white rounded-xl hover:opacity-90 transition-all duration-200 shadow-lg shadow-primary/20"
             >
               {isSwapping ? (
@@ -298,6 +343,8 @@ const TokenSwap = () => {
                 'Select different tokens'
               ) : !amount ? (
                 'Enter an amount'
+              ) : !quote?.execution ? (
+                'No executable route'
               ) : (
                 'Swap'
               )}
@@ -323,9 +370,9 @@ const TokenSwap = () => {
                   <p className="font-mono break-all">
                     <span className="text-[var(--text-primary)]">By:</span> {result.swappedBy}
                   </p>
-                  <p>Swapped {result.amountIn} for {parseFloat(result.grossOut).toFixed(4)} {result.toSymbol}</p>
-                  <p className="text-destructive/90">Fee paid: {parseFloat(result.feePaid).toFixed(4)} {result.toSymbol}</p>
-                  <p className="text-accent font-bold">Net received: {parseFloat(result.netOut).toFixed(4)} {result.toSymbol}</p>
+                  <p>Swapped {result.amountIn} for {parseFloat(result.grossOut).toLocaleString(undefined, { maximumFractionDigits: 9 })} {result.toSymbol}</p>
+                  <p className="text-destructive/90">Fee paid: {parseFloat(result.feePaid).toLocaleString(undefined, { maximumFractionDigits: 9 })} {result.toSymbol}</p>
+                  <p className="text-accent font-bold">Net received: {parseFloat(result.netOut).toLocaleString(undefined, { maximumFractionDigits: 9 })} {result.toSymbol}</p>
                 </div>
               </div>
             </AlertDescription>
