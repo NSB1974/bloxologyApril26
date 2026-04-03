@@ -7,6 +7,7 @@ import apiServerClient from '@/lib/apiServerClient.js';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 const ConnectedWalletDashboard = () => {
@@ -282,7 +283,22 @@ const ConnectedWalletDashboard = () => {
                             <div>
                               <p className="font-bold text-[var(--text-primary)]">{token.token}</p>
                               <p className="text-xs text-[var(--text-secondary)] font-medium">{parseFloat(token.balance).toFixed(4)}</p>
-                              <p className="text-[10px] text-[var(--text-muted)]">{getPriceSourceLabel(token)}</p>
+                              <TooltipProvider delayDuration={120}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <p className="inline-flex cursor-help text-[10px] text-[var(--text-muted)] underline decoration-dotted underline-offset-2">
+                                      {getPriceSourceLabel(token)}
+                                    </p>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-xs bg-[var(--text-primary)] text-[var(--bg-primary)]">
+                                    {token?.priceAvailable === false
+                                      ? 'No reliable market feed found for this token. Value is shown as zero.'
+                                      : token?.priceSource === 'coingecko-contract'
+                                        ? 'Price from contract-based market lookup. This can be less precise than mapped feeds.'
+                                        : 'Price from mapped market feed for a known token.'}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
                             </div>
                           </div>
                           <div className="text-right">
