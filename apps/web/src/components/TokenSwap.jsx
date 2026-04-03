@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowDownUp, Loader2, CheckCircle, AlertCircle, Settings, Info } from 'lucide-react';
+import { ethers } from 'ethers';
 import apiServerClient from '@/lib/apiServerClient.js';
 import { useBaseAuth, useNetwork } from '@/contexts/BaseAuthContext.jsx';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import FeeDisplay from '@/components/FeeDisplay.jsx';
 import { getTransactionUrl } from '@/utils/etherscanLinks.js';
 import { calculateSwapFee, FEE_RECIPIENT, FEE_CONFIG } from '@/utils/feeCalculator.js';
+import { useToast } from '@/hooks/use-toast';
+
+const ERC20_ABI = [
+  'function name() view returns (string)',
+  'function symbol() view returns (string)',
+  'function decimals() view returns (uint8)'
+];
 
 const DEFAULT_TOKENS_BY_CHAIN = {
   8453: [
@@ -36,7 +44,8 @@ const getDefaultTokensForChain = (chainId) => {
 
 const TokenSwap = () => {
   const { activeAddress } = useBaseAuth();
-  const { selectedNetwork, customTokens } = useNetwork();
+  const { selectedNetwork, customTokens, addCustomToken } = useNetwork();
+  const { toast } = useToast();
   const defaultTokens = getDefaultTokensForChain(selectedNetwork.id);
   const [fromToken, setFromToken] = useState(defaultTokens[0].address);
   const [toToken, setToToken] = useState(defaultTokens[1].address);
@@ -48,6 +57,14 @@ const TokenSwap = () => {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
+  const [isAddTokenOpen, setIsAddTokenOpen] = useState(false);
+  const [isAddTokenLoading, setIsAddTokenLoading] = useState(false);
+  const [tokenForm, setTokenForm] = useState({
+    address: '',
+    name: '',
+    symbol: '',
+    decimals: ''
+  });
 
   // Combine default tokens with custom tokens for current network
   const customTokensForNetwork = customTokens.filter(
@@ -119,6 +136,75 @@ const TokenSwap = () => {
     setToToken(fromToken);
     setAmount('');
     setQuote(null);
+  };
+
+  const handleTokenAddressChange = async (nextAddress) => {
+    setTokenForm((prev) => ({ ...prev, address: nextAddress }));
+
+    if (!ethers.isAddress(nextAddress)) {
+      return;
+    }
+
+    try {
+      setIsAddTokenLoading(true);
+      const provider = new ethers.JsonRpcProvider(selectedNetwork.rpcUrl);
+      const contract = new ethers.Contract(nextAddress, ERC20_ABI, provider);
+      const [name, symbol, decimals] = await Promise.all([
+        contract.name().catch(() => ''),
+        contract.symbol().catch(() => ''),
+        contract.decimals().catch(() => 18)
+      ]);
+
+      setTokenForm((prev) => ({
+        ...prev,
+        name: name || prev.name,
+        symbol: symbol || prev.symbol,
+        decimals: String(decimals)
+      }));
+    } catch (_) {
+      // Keep manual entry available if metadata fetch fails.
+    } finally {
+      setIsAddTokenLoading(false);
+    }
+  };
+
+  const handleAddCustomToken = (e) => {
+    e.preventDefault();
+
+    if (!ethers.isAddress(tokenForm.address)) {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid address',
+        description: 'Enter a valid token contract address.'
+      });
+      return;
+    }
+
+    if (!tokenForm.symbol || !tokenForm.decimals) {
+      toast({
+        variant: 'destructive',
+        title: 'Missing token info',
+        description: 'Token symbol and decimals are required.'
+      });
+      return;
+    }
+
+    const newToken = {
+      address: tokenForm.address,
+      name: tokenForm.name || tokenForm.symbol,
+      symbol: tokenForm.symbol,
+      decimals: Number(tokenForm.decimals),
+      chainId: selectedNetwork.id
+    };
+
+    addCustomToken(newToken);
+    setIsAddTokenOpen(false);
+    setTokenForm({ address: '', name: '', symbol: '', decimals: '' });
+
+    toast({
+      title: 'Token saved',
+      description: `${newToken.symbol} is now available in this swap list.`
+    });
   };
 
   const executeSwap = async (e) => {
@@ -224,6 +310,16 @@ const TokenSwap = () => {
                         {token.symbol}
                       </SelectItem>
                     ))}
+                    <div className="border-t border-border/40 px-2 py-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-8 w-full justify-start px-2 text-xs font-semibold"
+                        onClick={() => setIsAddTokenOpen(true)}
+                      >
+                        + Add custom token
+                      </Button>
+                    </div>
                   </SelectContent>
                 </Select>
               </div>
@@ -265,6 +361,16 @@ const TokenSwap = () => {
                         {token.symbol}
                       </SelectItem>
                     ))}
+                    <div className="border-t border-border/40 px-2 py-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-8 w-full justify-start px-2 text-xs font-semibold"
+                        onClick={() => setIsAddTokenOpen(true)}
+                      >
+                        + Add custom token
+                      </Button>
+                    </div>
                   </SelectContent>
                 </Select>
               </div>
@@ -387,6 +493,76 @@ const TokenSwap = () => {
           </form>
         </CardContent>
       </Card>
+
+      <Dialog open={isAddTokenOpen} onOpenChange={setIsAddTokenOpen}>
+        <DialogContent className="sm:max-w-[425px] bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="text-[var(--text-primary)]">Add Custom Token</DialogTitle>
+            <DialogDescription>
+              Save a token for {selectedNetwork.name}. It will appear in swap choices immediately.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleAddCustomToken} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="swap-add-token-address">Token Contract Address</Label>
+              <div className="relative">
+                <Input
+                  id="swap-add-token-address"
+                  value={tokenForm.address}
+                  onChange={(e) => handleTokenAddressChange(e.target.value)}
+                  placeholder="0x..."
+                  className="input-high-contrast pr-10"
+                  required
+                />
+                {isAddTokenLoading && (
+                  <Loader2 className="absolute right-3 top-2.5 h-4 w-4 animate-spin text-[var(--text-muted)]" />
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="swap-add-token-symbol">Symbol</Label>
+                <Input
+                  id="swap-add-token-symbol"
+                  value={tokenForm.symbol}
+                  onChange={(e) => setTokenForm((prev) => ({ ...prev, symbol: e.target.value }))}
+                  placeholder="USDC"
+                  className="input-high-contrast"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="swap-add-token-decimals">Decimals</Label>
+                <Input
+                  id="swap-add-token-decimals"
+                  type="number"
+                  value={tokenForm.decimals}
+                  onChange={(e) => setTokenForm((prev) => ({ ...prev, decimals: e.target.value }))}
+                  placeholder="18"
+                  className="input-high-contrast"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="swap-add-token-name">Token Name (Optional)</Label>
+              <Input
+                id="swap-add-token-name"
+                value={tokenForm.name}
+                onChange={(e) => setTokenForm((prev) => ({ ...prev, name: e.target.value }))}
+                placeholder="USD Coin"
+                className="input-high-contrast"
+              />
+            </div>
+
+            <Button type="submit" className="w-full" disabled={isAddTokenLoading}>
+              Save Token
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {result && (
         <motion.div
