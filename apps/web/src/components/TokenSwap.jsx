@@ -15,18 +15,31 @@ import FeeDisplay from '@/components/FeeDisplay.jsx';
 import { getTransactionUrl } from '@/utils/etherscanLinks.js';
 import { calculateSwapFee, FEE_RECIPIENT, FEE_CONFIG } from '@/utils/feeCalculator.js';
 
-const DEFAULT_TOKENS = [
-  { symbol: 'ETH', address: '0x4200000000000000000000000000000000000006' },
-  { symbol: 'USDC', address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
-  { symbol: 'DAI', address: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb' },
-  { symbol: 'USDT', address: '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2' }
-];
+const DEFAULT_TOKENS_BY_CHAIN = {
+  8453: [
+    { symbol: 'ETH', address: '0x4200000000000000000000000000000000000006' },
+    { symbol: 'USDC', address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
+    { symbol: 'DAI', address: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb' },
+    { symbol: 'USDT', address: '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2' }
+  ],
+  1: [
+    { symbol: 'ETH', address: '0xC02aaA39b223FE8D0A0E5C4F27eAD9083C756Cc2' },
+    { symbol: 'USDC', address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' },
+    { symbol: 'DAI', address: '0x6B175474E89094C44Da98b954EedeAC495271d0F' },
+    { symbol: 'USDT', address: '0xdAC17F958D2ee523a2206206994597C13D831ec7' }
+  ]
+};
+
+const getDefaultTokensForChain = (chainId) => {
+  return DEFAULT_TOKENS_BY_CHAIN[Number(chainId)] || DEFAULT_TOKENS_BY_CHAIN[8453];
+};
 
 const TokenSwap = () => {
   const { activeAddress } = useBaseAuth();
   const { selectedNetwork, customTokens } = useNetwork();
-  const [fromToken, setFromToken] = useState(DEFAULT_TOKENS[0].address);
-  const [toToken, setToToken] = useState(DEFAULT_TOKENS[1].address);
+  const defaultTokens = getDefaultTokensForChain(selectedNetwork.id);
+  const [fromToken, setFromToken] = useState(defaultTokens[0].address);
+  const [toToken, setToToken] = useState(defaultTokens[1].address);
   const [amount, setAmount] = useState('');
   
   const [quote, setQuote] = useState(null);
@@ -37,21 +50,24 @@ const TokenSwap = () => {
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
 
   // Combine default tokens with custom tokens for current network
-  const availableTokens = [
-    ...DEFAULT_TOKENS,
-    ...customTokens.filter(t => t.chainId === selectedNetwork.id)
-  ];
+  const customTokensForNetwork = customTokens.filter(
+    (t) => Number(t.chainId) === Number(selectedNetwork.id)
+  );
+  const availableTokens = [...defaultTokens, ...customTokensForNetwork].filter(
+    (token, index, arr) =>
+      arr.findIndex((item) => item.address.toLowerCase() === token.address.toLowerCase()) === index
+  );
 
   // Reset state when active address or network changes
   useEffect(() => {
     setResult(null);
     setError(null);
     // Reset to default tokens if custom tokens were removed
-    if (!availableTokens.find(t => t.address === fromToken)) {
-      setFromToken(DEFAULT_TOKENS[0].address);
+    if (!availableTokens.find(t => t.address.toLowerCase() === fromToken.toLowerCase())) {
+      setFromToken(defaultTokens[0].address);
     }
-    if (!availableTokens.find(t => t.address === toToken)) {
-      setToToken(DEFAULT_TOKENS[1].address);
+    if (!availableTokens.find(t => t.address.toLowerCase() === toToken.toLowerCase())) {
+      setToToken(defaultTokens[1].address);
     }
   }, [activeAddress, selectedNetwork.id, customTokens]);
 
@@ -161,7 +177,7 @@ const TokenSwap = () => {
         grossOut: quote.outputAmount,
         feePaid: feeAmount,
         netOut: netOutput,
-        toSymbol: availableTokens.find(t => t.address === toToken)?.symbol || 'Tokens',
+        toSymbol: availableTokens.find(t => t.address.toLowerCase() === toToken.toLowerCase())?.symbol || 'Tokens',
         swappedBy: activeAddress
       });
       setAmount('');
@@ -172,7 +188,7 @@ const TokenSwap = () => {
     }
   };
 
-  const toTokenSymbol = availableTokens.find(t => t.address === toToken)?.symbol || '';
+  const toTokenSymbol = availableTokens.find(t => t.address.toLowerCase() === toToken.toLowerCase())?.symbol || '';
   const feeAmount = quote ? Number(quote.feeAmount ?? calculateSwapFee(quote.outputAmount)) : 0;
   const netOutput = quote ? Number(quote.netOutputAmount ?? (parseFloat(quote.outputAmount) - feeAmount)) : 0;
 
