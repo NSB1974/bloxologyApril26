@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import FeeDisplay from '@/components/FeeDisplay.jsx';
+import { getTransactionUrl } from '@/utils/etherscanLinks.js';
 import { calculateSwapFee, FEE_RECIPIENT, FEE_CONFIG } from '@/utils/feeCalculator.js';
 
 const DEFAULT_TOKENS = [
@@ -371,6 +372,16 @@ const TokenSwap = () => {
                 <div className="text-sm space-y-1 text-[var(--text-secondary)] font-medium">
                   <p className="font-mono break-all">
                     <span className="text-[var(--text-primary)]">TX:</span> {result.transactionHash}
+                  </p>
+                  <p>
+                    <a
+                      href={getTransactionUrl(result.transactionHash, selectedNetwork)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-semibold text-primary hover:underline"
+                    >
+                      View on explorer
+                    </a>
                   </p>
                   <p className="font-mono break-all">
                     <span className="text-[var(--text-primary)]">By:</span> {result.swappedBy}
