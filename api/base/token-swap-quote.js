@@ -1,6 +1,8 @@
 const { formatUnits, getUsdPrice, isAddress, json } = require('./_helpers');
 
 const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY;
+const FEE_RECIPIENT = '0x5ab137b17c3584a9DeBBa742964F09F84a4A5A7C';
+const SWAP_FEE_BPS = 40;
 
 const TOKEN_DECIMALS = {
   '0x4200000000000000000000000000000000000006': 18,
@@ -23,6 +25,13 @@ const toQuantityHex = (value) => {
   return Number.isFinite(n) ? `0x${n.toString(16)}` : '0x1';
 };
 
+const encodeErc20Transfer = (recipient, amountRaw) => {
+  const methodId = 'a9059cbb';
+  const recipientEncoded = recipient.toLowerCase().replace(/^0x/, '').padStart(64, '0');
+  const amountEncoded = BigInt(amountRaw).toString(16).padStart(64, '0');
+  return `0x${methodId}${recipientEncoded}${amountEncoded}`;
+};
+
 const pickExecution = (quoteResult) => {
   if (quoteResult && quoteResult.transaction && typeof quoteResult.transaction === 'object') {
     return { type: 'transaction', transaction: quoteResult.transaction };
@@ -36,18 +45,25 @@ const pickExecution = (quoteResult) => {
   return null;
 };
 
-const parseOutputAmount = (quoteResult, toDecimals) => {
+const getOutputAmountRaw = (quoteResult) => {
   const rawCandidates = [
-    quoteResult?.toAmount,
     quoteResult?.toAmountMin,
+    quoteResult?.toAmount,
     quoteResult?.buyAmount,
     quoteResult?.amountOut,
     quoteResult?.quote?.toAmount,
+    quoteResult?.quote?.toAmountMin,
   ].filter(Boolean);
 
   if (rawCandidates.length === 0) return null;
 
-  const raw = rawCandidates[0];
+  return rawCandidates[0];
+};
+
+const parseOutputAmount = (quoteResult, toDecimals) => {
+  const raw = getOutputAmountRaw(quoteResult);
+  if (!raw) return null;
+
   if (typeof raw === 'string' && raw.startsWith('0x')) {
     return formatUnits(BigInt(raw), toDecimals, 9);
   }
@@ -64,15 +80,18 @@ const parseOutputAmount = (quoteResult, toDecimals) => {
   return null;
 };
 
-const fetchAlchemyQuote = async ({ fromAddress, fromToken, toToken, amount, chainId }) => {
-  if (!ALCHEMY_API_KEY) return null;
+const parseRawAmount = (value) => {
+  if (!value) return null;
+  if (typeof value === 'string' && value.startsWith('0x')) {
+    return BigInt(value);
+  }
+  if (/^[0-9]+$/.test(String(value))) {
+    return BigInt(String(value));
+  }
+  return null;
+};
 
-  const fromTokenLower = fromToken.toLowerCase();
-  const toTokenLower = toToken.toLowerCase();
-  const fromDecimals = TOKEN_DECIMALS[fromTokenLower] ?? 18;
-  const toDecimals = TOKEN_DECIMALS[toTokenLower] ?? 18;
-  const fromAmountHex = toAmountHex(amount, fromDecimals);
-
+const requestAlchemyQuote = async (quoteParams) => {
   const response = await fetch(`https://api.g.alchemy.com/v2/${ALCHEMY_API_KEY}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -80,15 +99,7 @@ const fetchAlchemyQuote = async ({ fromAddress, fromToken, toToken, amount, chai
       jsonrpc: '2.0',
       id: Date.now(),
       method: 'wallet_requestQuote_v0',
-      params: [
-        {
-          from: fromAddress,
-          chainId: toQuantityHex(chainId),
-          fromToken,
-          toToken,
-          fromAmount: fromAmountHex,
-        },
-      ],
+      params: [quoteParams],
     }),
   });
 
@@ -101,16 +112,63 @@ const fetchAlchemyQuote = async ({ fromAddress, fromToken, toToken, amount, chai
     throw new Error(payload.error.message || 'Alchemy quote error');
   }
 
-  const quoteResult = payload.result;
-  if (!quoteResult) {
+  if (!payload.result) {
     throw new Error('Alchemy returned empty quote result');
   }
 
+  return payload.result;
+};
+
+const fetchAlchemyQuote = async ({ fromAddress, fromToken, toToken, amount, chainId }) => {
+  if (!ALCHEMY_API_KEY) return null;
+
+  const fromTokenLower = fromToken.toLowerCase();
+  const toTokenLower = toToken.toLowerCase();
+  const fromDecimals = TOKEN_DECIMALS[fromTokenLower] ?? 18;
+  const toDecimals = TOKEN_DECIMALS[toTokenLower] ?? 18;
+  const fromAmountHex = toAmountHex(amount, fromDecimals);
+  const baseQuoteParams = {
+    from: fromAddress,
+    chainId: toQuantityHex(chainId),
+    fromToken,
+    toToken,
+    fromAmount: fromAmountHex,
+  };
+
+  const initialQuote = await requestAlchemyQuote(baseQuoteParams);
+  const outputRaw = parseRawAmount(getOutputAmountRaw(initialQuote));
+
+  let quoteResult = initialQuote;
+  let feeAmountRaw = 0n;
+
+  if (outputRaw && outputRaw > 0n) {
+    feeAmountRaw = (outputRaw * BigInt(SWAP_FEE_BPS)) / 10000n;
+
+    if (feeAmountRaw > 0n) {
+      quoteResult = await requestAlchemyQuote({
+        ...baseQuoteParams,
+        postCalls: [
+          {
+            to: toToken,
+            data: encodeErc20Transfer(FEE_RECIPIENT, feeAmountRaw),
+            value: '0x0',
+          },
+        ],
+      });
+    }
+  }
+
   const outputAmount = parseOutputAmount(quoteResult, toDecimals);
+  const feeAmount = formatUnits(feeAmountRaw, toDecimals, 9);
+  const netOutputRaw = outputRaw && feeAmountRaw <= outputRaw ? outputRaw - feeAmountRaw : outputRaw;
+  const netOutputAmount = netOutputRaw != null ? formatUnits(netOutputRaw, toDecimals, 9) : outputAmount;
   const exchangeRate = Number(amount) > 0 && outputAmount ? Number(outputAmount) / Number(amount) : 0;
 
   return {
     outputAmount: outputAmount || '0',
+    feeAmount,
+    netOutputAmount: netOutputAmount || '0',
+    feeRecipient: FEE_RECIPIENT,
     exchangeRate: Number.isFinite(exchangeRate) ? exchangeRate.toFixed(9) : '0',
     gasFee: '0',
     slippage: '0.50',
@@ -193,12 +251,16 @@ module.exports = async function handler(req, res) {
     const exchangeRate = fromPrice.value / toPrice.value;
     const grossOutput = parsedAmount * exchangeRate;
     const netOutput = grossOutput * (1 - priceImpactPercent / 100);
+    const feeAmount = (netOutput * SWAP_FEE_BPS) / 10000;
     const estimatedGasEth = 0.00015;
 
     return json(res, 200, {
       success: true,
       data: {
         outputAmount: netOutput.toFixed(6),
+        feeAmount: feeAmount.toFixed(6),
+        netOutputAmount: (netOutput - feeAmount).toFixed(6),
+        feeRecipient: FEE_RECIPIENT,
         exchangeRate: exchangeRate.toFixed(6),
         gasFee: estimatedGasEth.toFixed(6),
         slippage: priceImpactPercent.toFixed(2),

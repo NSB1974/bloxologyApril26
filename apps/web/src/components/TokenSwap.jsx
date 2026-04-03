@@ -136,8 +136,8 @@ const TokenSwap = () => {
         throw new Error('Wallet did not return a transaction hash.');
       }
 
-      const feeAmount = calculateSwapFee(quote.outputAmount);
-      const netOutput = parseFloat(quote.outputAmount) - feeAmount;
+      const feeAmount = Number(quote.feeAmount ?? calculateSwapFee(quote.outputAmount));
+      const netOutput = Number(quote.netOutputAmount ?? (parseFloat(quote.outputAmount) - feeAmount));
 
       setIsSwapping(false);
       setResult({
@@ -159,8 +159,8 @@ const TokenSwap = () => {
   };
 
   const toTokenSymbol = DEFAULT_TOKENS.find(t => t.address === toToken)?.symbol || '';
-  const feeAmount = quote ? calculateSwapFee(quote.outputAmount) : 0;
-  const netOutput = quote ? parseFloat(quote.outputAmount) - feeAmount : 0;
+  const feeAmount = quote ? Number(quote.feeAmount ?? calculateSwapFee(quote.outputAmount)) : 0;
+  const netOutput = quote ? Number(quote.netOutputAmount ?? (parseFloat(quote.outputAmount) - feeAmount)) : 0;
 
   return (
     <div className="max-w-md mx-auto space-y-6">
@@ -321,7 +321,7 @@ const TokenSwap = () => {
                   feePercent={FEE_CONFIG.SWAP_FEE_PERCENT}
                   totalAmount={quote.outputAmount}
                   netAmount={netOutput}
-                  feeRecipient={FEE_RECIPIENT}
+                  feeRecipient={quote?.feeRecipient || FEE_RECIPIENT}
                   symbol={toTokenSymbol}
                 />
               </motion.div>

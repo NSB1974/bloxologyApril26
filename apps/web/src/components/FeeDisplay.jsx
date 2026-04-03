@@ -14,7 +14,7 @@ const FeeDisplay = ({
 }) => {
   const formatVal = (val) => {
     const num = parseFloat(val);
-    return isNaN(num) ? '0.00' : num.toLocaleString('en-US', { maximumFractionDigits: 6 });
+    return isNaN(num) ? '0.000000000' : num.toLocaleString('en-US', { maximumFractionDigits: 9 });
   };
 
   return (
