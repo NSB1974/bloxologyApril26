@@ -1,4 +1,4 @@
-const { formatUnits, getUsdPrice, isAddress, json } = require('./_helpers');
+const { formatUnits, getUsdPrice, CHAIN_ID_TO_COINGECKO_PLATFORM, isAddress, json } = require('./_helpers');
 
 const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY;
 const FEE_RECIPIENT = '0x5ab137b17c3584a9DeBBa742964F09F84a4A5A7C';
@@ -237,17 +237,22 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    const platform = CHAIN_ID_TO_COINGECKO_PLATFORM[Number(chainId)] || 'base';
+    const ethNativeAddress = Number(chainId) === 1
+      ? '0xc02aa39b223fe8d0a0e5c4f27ead9083c756cc2'
+      : '0x4200000000000000000000000000000000000006';
+
     const [fromPrice, toPrice, ethPrice] = await Promise.all([
-      getUsdPrice(fromToken),
-      getUsdPrice(toToken),
-      getUsdPrice('0x4200000000000000000000000000000000000006'),
+      getUsdPrice(fromToken, platform),
+      getUsdPrice(toToken, platform),
+      getUsdPrice(ethNativeAddress, platform),
     ]);
 
     if (fromPrice.value <= 0 || toPrice.value <= 0) {
       return json(res, 400, {
         success: false,
         data: null,
-        error: 'Unsupported token for pricing',
+        error: `No pricing data available for this token pair on ${platform}. Try a different pair or connect a wallet for a live quote.`,
       });
     }
 

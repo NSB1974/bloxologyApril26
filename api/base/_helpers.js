@@ -1,6 +1,16 @@
 const BASE_RPC_ENDPOINT = process.env.BASE_RPC_ENDPOINT || 'https://base-rpc.publicnode.com';
 const COINGECKO_BASE = 'https://api.coingecko.com/api/v3/simple/price';
-const COINGECKO_TOKEN_PRICE_BASE = 'https://api.coingecko.com/api/v3/simple/token_price/base';
+
+const CHAIN_ID_TO_COINGECKO_PLATFORM = {
+  1: 'ethereum',
+  137: 'polygon-pos',
+  8453: 'base',
+  42161: 'arbitrum-one',
+  10: 'optimistic-ethereum',
+  2222: 'kava',
+  84532: 'base',
+  11155111: 'ethereum',
+};
 
 const PRICE_CACHE_TTL_MS = 60 * 1000;
 const TOKEN_META_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -9,10 +19,16 @@ const priceCache = new Map();
 const tokenMetaCache = new Map();
 
 const TOKEN_PRICE_IDS = {
+  // Base Mainnet
   '0x4200000000000000000000000000000000000006': 'ethereum',
   '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913': 'usd-coin',
   '0x50c5725949a6f0c72e6c4a641f24049a917db0cb': 'dai',
   '0xfde4c96c8593536e31f229ea8f37b2ada2699bb2': 'tether',
+  // Ethereum Mainnet
+  '0xc02aa39b223fe8d0a0e5c4f27ead9083c756cc2': 'ethereum',
+  '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': 'usd-coin',
+  '0x6b175474e89094c44da98b954eedeac495271d0f': 'dai',
+  '0xdac17f958d2ee523a2206206994597c13d831ec7': 'tether',
 };
 
 const json = (res, status, payload) => {
@@ -143,10 +159,10 @@ const getNativeBalance = async (walletAddress) => {
   };
 };
 
-const getUsdPrice = async (tokenAddress) => {
+const getUsdPrice = async (tokenAddress, platform = 'base') => {
   const key = tokenAddress.toLowerCase();
   const id = TOKEN_PRICE_IDS[key];
-  const cacheKey = id ? `id:${id}` : `addr:${key}`;
+  const cacheKey = id ? `id:${id}` : `addr:${key}:${platform}`;
 
   const cached = priceCache.get(cacheKey);
   if (shouldUseCache(cached, PRICE_CACHE_TTL_MS)) {
@@ -171,10 +187,14 @@ const getUsdPrice = async (tokenAddress) => {
     return priceResult;
   }
 
-  const tokenUrl = `${COINGECKO_TOKEN_PRICE_BASE}?contract_addresses=${encodeURIComponent(key)}&vs_currencies=usd`;
+  const safePlatform = CHAIN_ID_TO_COINGECKO_PLATFORM[platform] || platform || 'base';
+  const tokenUrl = `https://api.coingecko.com/api/v3/simple/token_price/${encodeURIComponent(safePlatform)}?contract_addresses=${encodeURIComponent(key)}&vs_currencies=usd`;
   const tokenResponse = await fetch(tokenUrl, { headers: { Accept: 'application/json' } });
   if (!tokenResponse.ok) {
-    throw new Error(`CoinGecko token price request failed: ${tokenResponse.status}`);
+    // Don't throw — return unavailable so callers can decide what to do.
+    const priceResult = { value: 0, source: 'coingecko-contract', available: false };
+    priceCache.set(cacheKey, { ts: nowMs(), value: priceResult });
+    return priceResult;
   }
 
   const tokenPayload = await tokenResponse.json();
@@ -190,6 +210,7 @@ const getUsdPrice = async (tokenAddress) => {
 
 module.exports = {
   TOKEN_PRICE_IDS,
+  CHAIN_ID_TO_COINGECKO_PLATFORM,
   formatUnits,
   getErc20Balance,
   getNativeBalance,
