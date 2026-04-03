@@ -259,7 +259,7 @@ const TokenBalanceChecker = ({ selectedNetwork }) => {
               <Skeleton className="h-12 w-48 mt-2 bg-white/10" />
             ) : (
               <h3 className="text-5xl font-extrabold text-[var(--text-primary)] tracking-tight">
-                {nativeBalance ? parseFloat(nativeBalance.balanceEth).toLocaleString('en-US', { maximumFractionDigits: 4 }) : '0'} {currencySymbol}
+                {nativeBalance ? parseFloat(nativeBalance.balanceEth).toLocaleString('en-US', { maximumFractionDigits: 9 }) : '0'} {currencySymbol}
               </h3>
             )}
           </CardContent>
