@@ -199,7 +199,7 @@ const TokenBalanceChecker = ({ selectedNetwork }) => {
       console.log('[TokenBalanceChecker] Calling setTokenBalances with: []');
       setTokenBalances([]);
     }
-  }, [effectiveWallet, selectedNetwork?.id, jwtToken]);
+  }, [effectiveWallet, selectedNetwork?.id]);
 
   if (!effectiveWallet || !selectedNetwork) return null;
 

@@ -401,9 +401,8 @@ export const BaseAuthProvider = ({ children }) => {
 
       console.log('[BaseAuthContext] Syncing wallet from WalletContext:', normalized);
       setIsConnected(true);
-      setWalletType('metamask');
+      // Note: Let the wallet type be set naturally from external context rather than hardcoding
       localStorage.setItem('base_auth_session', normalized);
-      localStorage.setItem('base_wallet_type', 'metamask');
 
       // Populate available addresses and set active
       const alreadyInList = availableAddresses.some(
