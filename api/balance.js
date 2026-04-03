@@ -53,9 +53,7 @@ module.exports = async function handler(req, res) {
       ),
     ]);
 
-    const nonZeroTokens = tokenResults
-      .filter(Boolean)
-      .filter((token) => Number(token.balance || '0') > 0);
+    const allTokens = tokenResults.filter(Boolean);
 
     return json(res, 200, {
       success: true,
@@ -65,7 +63,7 @@ module.exports = async function handler(req, res) {
           balanceWei: nativeResult.balanceRaw.toString(),
           balanceEth: nativeResult.balance,
         },
-        tokens: nonZeroTokens,
+        tokens: allTokens,
       },
       error: null,
     });
