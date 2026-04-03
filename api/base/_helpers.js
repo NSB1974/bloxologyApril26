@@ -1,6 +1,19 @@
 const BASE_RPC_ENDPOINT = process.env.BASE_RPC_ENDPOINT || 'https://base-rpc.publicnode.com';
 const COINGECKO_BASE = 'https://api.coingecko.com/api/v3/simple/price';
 
+const CHAIN_ID_TO_RPC_URL = {
+  1: 'https://eth.llamarpc.com',
+  137: 'https://polygon-rpc.com',
+  8453: BASE_RPC_ENDPOINT,
+  42161: 'https://arb1.arbitrum.io/rpc',
+  10: 'https://mainnet.optimism.io',
+  2222: 'https://evm.kava.io',
+  84532: 'https://sepolia.base.org',
+  11155111: 'https://rpc.sepolia.org',
+};
+
+const getRpcUrl = (chainId) => CHAIN_ID_TO_RPC_URL[Number(chainId)] || BASE_RPC_ENDPOINT;
+
 const CHAIN_ID_TO_COINGECKO_PLATFORM = {
   1: 'ethereum',
   137: 'polygon-pos',
@@ -43,8 +56,9 @@ const nowMs = () => Date.now();
 
 const shouldUseCache = (cached, ttlMs) => cached && nowMs() - cached.ts < ttlMs;
 
-const rpc = async (method, params) => {
-  const response = await fetch(BASE_RPC_ENDPOINT, {
+const rpc = async (method, params, chainId) => {
+  const endpoint = chainId ? getRpcUrl(chainId) : BASE_RPC_ENDPOINT;
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -108,16 +122,16 @@ const decodeAbiString = (hexData) => {
   }
 };
 
-const getTokenMeta = async (tokenAddress) => {
-  const key = tokenAddress.toLowerCase();
+const getTokenMeta = async (tokenAddress, chainId) => {
+  const key = `${tokenAddress.toLowerCase()}:${chainId || 8453}`;
   const cached = tokenMetaCache.get(key);
   if (shouldUseCache(cached, TOKEN_META_CACHE_TTL_MS)) {
     return cached.value;
   }
 
   const [decimalsHex, symbolHex] = await Promise.all([
-    rpc('eth_call', [{ to: tokenAddress, data: '0x313ce567' }, 'latest']),
-    rpc('eth_call', [{ to: tokenAddress, data: '0x95d89b41' }, 'latest']),
+    rpc('eth_call', [{ to: tokenAddress, data: '0x313ce567' }, 'latest'], chainId),
+    rpc('eth_call', [{ to: tokenAddress, data: '0x95d89b41' }, 'latest'], chainId),
   ]);
 
   const decimals = Number.parseInt(decimalsHex, 16);
@@ -131,12 +145,13 @@ const getTokenMeta = async (tokenAddress) => {
   return value;
 };
 
-const getErc20Balance = async (walletAddress, tokenAddress) => {
-  const { decimals, symbol } = await getTokenMeta(tokenAddress);
+const getErc20Balance = async (walletAddress, tokenAddress, chainId) => {
+  const { decimals, symbol } = await getTokenMeta(tokenAddress, chainId);
   const paddedWallet = walletAddress.toLowerCase().replace(/^0x/, '').padStart(64, '0');
   const balanceHex = await rpc(
     'eth_call',
-    [{ to: tokenAddress, data: `0x70a08231${paddedWallet}` }, 'latest']
+    [{ to: tokenAddress, data: `0x70a08231${paddedWallet}` }, 'latest'],
+    chainId
   );
   const balanceRaw = hexToBigInt(balanceHex);
 
@@ -211,8 +226,11 @@ const getUsdPrice = async (tokenAddress, platform = 'base') => {
 module.exports = {
   TOKEN_PRICE_IDS,
   CHAIN_ID_TO_COINGECKO_PLATFORM,
+  CHAIN_ID_TO_RPC_URL,
+  getRpcUrl,
   formatUnits,
   getErc20Balance,
+  getTokenMeta,
   getNativeBalance,
   getUsdPrice,
   isAddress,

@@ -8,6 +8,7 @@ module.exports = async function handler(req, res) {
 
   const walletAddress = req.query && req.query.walletAddress;
   const tokenAddress = req.query && req.query.tokenAddress;
+  const chainId = req.query && req.query.chainId ? Number(req.query.chainId) : 8453;
 
   if (!walletAddress || !tokenAddress) {
     return json(res, 400, {
@@ -22,7 +23,7 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const balance = await getErc20Balance(walletAddress, tokenAddress);
+    const balance = await getErc20Balance(walletAddress, tokenAddress, chainId);
     return json(res, 200, {
       success: true,
       data: {

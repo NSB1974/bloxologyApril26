@@ -71,25 +71,80 @@ const TokenLocker = () => {
       return;
     }
 
+    if (!activeAddress) {
+      setError('Please connect your wallet first');
+      return;
+    }
+
+    if (!window.ethereum) {
+      setError('No wallet extension detected. Please install MetaMask or a compatible wallet.');
+      return;
+    }
+
     setLoading(true);
     setOperation('lock');
     setError(null);
     setResult(null);
 
-    // Simulate locking transaction and fee deduction using activeAddress
-    setTimeout(() => {
-      setLoading(false);
-      setOperation(null);
+    try {
+      // 1. Fetch the encoded ERC-20 transfer transaction from the API
+      const response = await apiServerClient.fetch('/base/lock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          walletAddress: activeAddress,
+          tokenAddress: tokenAddress.trim(),
+          amount,
+          unlockDate,
+          chainId: selectedNetwork.id,
+        }),
+      });
+
+      let data;
+      try {
+        data = await response.json();
+      } catch (_) {
+        throw new Error('Server returned an invalid response. Please try again.');
+      }
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Failed to prepare lock transaction');
+      }
+
+      const { transaction, lockDetails } = data.data;
+
+      // 2. Submit the ERC-20 transfer via the user's wallet
+      const txHash = await window.ethereum.request({
+        method: 'eth_sendTransaction',
+        params: [{
+          from: activeAddress,
+          to: transaction.to,
+          data: transaction.data,
+          value: transaction.value,
+        }],
+      });
+
+      if (!txHash) {
+        throw new Error('Wallet did not return a transaction hash.');
+      }
+
       setResult({
-        message: `Tokens successfully locked on ${selectedNetwork.name}`,
-        transactionHash: '0x' + Math.random().toString(16).slice(2, 42),
-        amount: amount,
+        message: `Tokens locked on ${selectedNetwork.name}`,
+        transactionHash: txHash,
+        amount: lockDetails.amount,
+        symbol: lockDetails.symbol,
         feePaid: lockerFee,
-        unlockDate: new Date(unlockDate).toISOString(),
-        lockedBy: activeAddress
+        escrowAddress: lockDetails.escrowAddress,
+        unlockDate: lockDetails.unlockDate,
+        lockedBy: activeAddress,
       });
       setAmount('');
-    }, 2500);
+    } catch (err) {
+      setError(err.message || 'Lock failed');
+    } finally {
+      setLoading(false);
+      setOperation(null);
+    }
   };
 
   return (
@@ -220,14 +275,11 @@ const TokenLocker = () => {
                   <p className="font-mono break-all">
                     <span className="text-[var(--text-primary)]">TX Hash:</span> {result.transactionHash}
                   </p>
-                  <p className="font-mono break-all">
-                    <span className="text-[var(--text-primary)]">Locked By:</span> {result.lockedBy}
-                  </p>
                   <p>
-                    <span className="text-[var(--text-primary)]">Amount Locked:</span> {result.amount}
+                    <span className="text-[var(--text-primary)]">Amount Locked:</span> {result.amount} {result.symbol}
                   </p>
-                  <p className="text-destructive/90">
-                    <span className="text-[var(--text-primary)]">Fee Deducted:</span> {result.feePaid} GPB
+                  <p className="font-mono break-all text-xs">
+                    <span className="text-[var(--text-primary)]">Escrow:</span> {result.escrowAddress}
                   </p>
                   <p className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
