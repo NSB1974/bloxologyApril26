@@ -107,7 +107,7 @@ const TransactionHistory = ({ currentNetwork, walletAddress }) => {
     const matchesSearch = tx.hash.toLowerCase().includes(search.toLowerCase()) || 
                           tx.to?.toLowerCase().includes(search.toLowerCase());
     
-    const txStatus = tx.isError === '1' ? 'failed' : 'success';
+    const txStatus = tx.isError === '1' || tx.isError === true ? 'failed' : 'success';
     const matchesStatus = statusFilter === 'all' || txStatus === statusFilter;
     
     return matchesSearch && matchesStatus;
@@ -209,7 +209,7 @@ const TransactionHistory = ({ currentNetwork, walletAddress }) => {
                 <AnimatePresence>
                   {paginatedTransactions.map((tx, idx) => {
                     const type = getTxType(tx);
-                    const status = tx.isError === '1' ? 'failed' : 'success';
+                    const status = tx.isError === '1' || tx.isError === true ? 'failed' : 'success';
                     
                     return (
                       <motion.tr 
