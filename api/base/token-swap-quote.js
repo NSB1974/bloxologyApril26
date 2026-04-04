@@ -167,6 +167,11 @@ const fetchAlchemyQuote = async ({ fromAddress, fromToken, toToken, amount, chai
   const netOutputRaw = outputRaw && feeAmountRaw <= outputRaw ? outputRaw - feeAmountRaw : outputRaw;
   const netOutputAmount = netOutputRaw != null ? formatUnits(netOutputRaw, toDecimals, 9) : outputAmount;
   const exchangeRate = Number(amount) > 0 && outputAmount ? Number(outputAmount) / Number(amount) : 0;
+  const execution = pickExecution(quoteResult);
+
+  if (!execution) {
+    throw new Error('No executable route returned by quote provider');
+  }
 
   return {
     outputAmount: outputAmount || '0',
@@ -184,7 +189,7 @@ const fetchAlchemyQuote = async ({ fromAddress, fromToken, toToken, amount, chai
       toTokenSource: 'alchemy-quote',
     },
     provider: 'alchemy',
-    execution: pickExecution(quoteResult),
+    execution,
     rawQuote: quoteResult,
   };
 };

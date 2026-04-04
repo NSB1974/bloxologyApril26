@@ -67,6 +67,7 @@ const TokenSwap = () => {
   });
   const [fromTokenBalance, setFromTokenBalance] = useState(null);
   const [loadingBalance, setLoadingBalance] = useState(false);
+  const [balanceUnavailable, setBalanceUnavailable] = useState(false);
 
   // Combine default tokens with custom tokens for current network
   const customTokensForNetwork = customTokens.filter(
@@ -95,23 +96,27 @@ const TokenSwap = () => {
     const fetchBalance = async () => {
       if (!activeAddress || !fromToken) {
         setFromTokenBalance(null);
+        setBalanceUnavailable(false);
         return;
       }
 
       setLoadingBalance(true);
+      setBalanceUnavailable(false);
       try {
         const response = await apiServerClient.fetch(
           `/base/token-balance?walletAddress=${activeAddress}&tokenAddress=${fromToken}&chainId=${selectedNetwork.id}`
         );
         const data = await response.json();
         if (data.success && data.data) {
-          setFromTokenBalance(data.data.balance);
+          setFromTokenBalance(String(data.data.balance ?? '0'));
         } else {
-          setFromTokenBalance(null);
+          setFromTokenBalance('0');
+          setBalanceUnavailable(true);
         }
       } catch (err) {
         console.error('Failed to fetch token balance:', err);
-        setFromTokenBalance(null);
+        setFromTokenBalance('0');
+        setBalanceUnavailable(true);
       } finally {
         setLoadingBalance(false);
       }
@@ -309,6 +314,12 @@ const TokenSwap = () => {
   const toTokenSymbol = availableTokens.find(t => t.address.toLowerCase() === toToken.toLowerCase())?.symbol || '';
   const feeAmount = quote ? Number(quote.feeAmount ?? calculateSwapFee(quote.outputAmount)) : 0;
   const netOutput = quote ? Number(quote.netOutputAmount ?? (parseFloat(quote.outputAmount) - feeAmount)) : 0;
+  const parsedBalance = Number(fromTokenBalance ?? '0');
+  const parsedAmount = Number(amount || '0');
+  const hasInsufficientBalance = Number.isFinite(parsedBalance)
+    && Number.isFinite(parsedAmount)
+    && parsedAmount > 0
+    && parsedAmount > parsedBalance;
 
   return (
     <div className="max-w-md mx-auto space-y-6">
@@ -328,24 +339,29 @@ const TokenSwap = () => {
                 <div className="flex items-center gap-2">
                   {loadingBalance ? (
                     <span className="text-xs text-[var(--text-secondary)]">Loading balance...</span>
-                  ) : fromTokenBalance ? (
+                  ) : (
                     <>
                       <span className="text-xs text-[var(--text-secondary)]">
-                        Balance: {parseFloat(fromTokenBalance).toLocaleString(undefined, { maximumFractionDigits: 9 })}
+                        Balance: {Number.isFinite(parsedBalance)
+                          ? parsedBalance.toLocaleString(undefined, { maximumFractionDigits: 9 })
+                          : '0'}
                       </span>
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => setAmount(fromTokenBalance)}
+                        onClick={() => setAmount(String(fromTokenBalance ?? '0'))}
                         className="h-6 px-2 text-xs font-semibold text-primary hover:bg-primary/10"
                       >
                         Max
                       </Button>
                     </>
-                  ) : null}
+                  )}
                 </div>
               </div>
+              {balanceUnavailable && (
+                <p className="text-[11px] text-amber-300">Balance check unavailable. Showing 0 until RPC responds.</p>
+              )}
               <div className="flex gap-3">
                 <Input
                   type="number"
@@ -437,6 +453,13 @@ const TokenSwap = () => {
               </Alert>
             )}
 
+            {!error && hasInsufficientBalance && (
+              <Alert variant="destructive" className="glass-card border-destructive/50 mt-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="font-medium">Insufficient balance for this amount.</AlertDescription>
+              </Alert>
+            )}
+
             {/* Quote Details & Fee Display */}
             {quote && !loadingQuote && !error && (
               <motion.div 
@@ -524,7 +547,7 @@ const TokenSwap = () => {
 
             <Button
               type="submit"
-              disabled={!quote || !quote.execution || isSwapping || loadingQuote || fromToken === toToken || !activeAddress}
+              disabled={!quote || !quote.execution || isSwapping || loadingQuote || fromToken === toToken || !activeAddress || hasInsufficientBalance}
               className="w-full h-14 mt-4 text-lg font-bold crypto-gradient text-white rounded-xl hover:opacity-90 transition-all duration-200 shadow-lg shadow-primary/20"
             >
               {isSwapping ? (
@@ -538,6 +561,8 @@ const TokenSwap = () => {
                 'Select different tokens'
               ) : !amount ? (
                 'Enter an amount'
+              ) : hasInsufficientBalance ? (
+                'Insufficient balance'
               ) : !quote?.execution ? (
                 'No executable route'
               ) : (
