@@ -133,6 +133,72 @@ const requestAlchemyQuote = async (quoteParams) => {
   return payload.result;
 };
 
+const fetchZeroXQuote = async ({ fromAddress, fromToken, toToken, amount, chainId }) => {
+  const fromTokenLower = fromToken.toLowerCase();
+  const toTokenLower = toToken.toLowerCase();
+  const fromDecimals = TOKEN_DECIMALS[fromTokenLower] ?? 18;
+  const toDecimals = TOKEN_DECIMALS[toTokenLower] ?? 18;
+  const sellAmountRaw = toAmountRaw(amount, fromDecimals).toString();
+
+  const endpoint = new URL('https://api.0x.org/swap/permit2/quote');
+  endpoint.searchParams.set('chainId', String(Number(chainId)));
+  endpoint.searchParams.set('sellToken', fromToken);
+  endpoint.searchParams.set('buyToken', toToken);
+  endpoint.searchParams.set('sellAmount', sellAmountRaw);
+  endpoint.searchParams.set('taker', fromAddress);
+
+  const response = await fetch(endpoint.toString(), {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      '0x-version': 'v2',
+    },
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload?.reason || payload?.message || `0x quote request failed: ${response.status}`);
+  }
+
+  const buyAmountRaw = parseRawAmount(payload?.buyAmount);
+  const outputAmount = buyAmountRaw != null ? formatUnits(buyAmountRaw, toDecimals, 9) : '0';
+  const exchangeRate = Number(amount) > 0 && Number(outputAmount) > 0 ? Number(outputAmount) / Number(amount) : 0;
+
+  const tx = payload?.transaction;
+  if (!tx || !tx.to || !tx.data) {
+    throw new Error('0x quote did not return executable transaction data');
+  }
+
+  return {
+    outputAmount,
+    feeAmount: '0',
+    netOutputAmount: outputAmount,
+    feeRecipient: FEE_RECIPIENT,
+    exchangeRate: Number.isFinite(exchangeRate) ? exchangeRate.toFixed(9) : '0',
+    gasFee: '0',
+    slippage: '0.50',
+    fromUsd: null,
+    toUsd: null,
+    estimatedGasUsd: null,
+    pricing: {
+      fromTokenSource: '0x-quote',
+      toTokenSource: '0x-quote',
+    },
+    provider: '0x',
+    execution: {
+      type: 'transaction',
+      transaction: {
+        to: tx.to,
+        data: tx.data,
+        value: tx.value || '0x0',
+        gas: tx.gas,
+        gasPrice: tx.gasPrice,
+      },
+    },
+    rawQuote: payload,
+  };
+};
+
 const fetchAlchemyQuote = async ({ fromAddress, fromToken, toToken, amount, chainId, providerToToken }) => {
   if (!ALCHEMY_API_KEY) return null;
 
@@ -364,6 +430,30 @@ module.exports = async function handler(req, res) {
               toToken,
               amount,
               error: String(aliasError?.message || aliasError),
+            });
+          }
+        }
+
+        // Fallback to 0x quote provider when Alchemy cannot route.
+        if (routeError) {
+          try {
+            const zeroXQuote = await fetchZeroXQuote({ fromAddress, fromToken, toToken, amount, chainId });
+            if (zeroXQuote) {
+              return json(res, 200, {
+                success: true,
+                data: zeroXQuote,
+                error: null,
+              });
+            }
+          } catch (zeroXError) {
+            console.error('[token-swap-quote] 0x fallback failed', {
+              requestId,
+              chainId: Number(chainId),
+              fromAddress,
+              fromToken,
+              toToken,
+              amount,
+              error: String(zeroXError?.message || zeroXError),
             });
           }
         }
