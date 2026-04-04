@@ -44,6 +44,17 @@ const TOKEN_PRICE_IDS = {
   '0xdac17f958d2ee523a2206206994597c13d831ec7': 'tether',
 };
 
+const KNOWN_TOKEN_META = {
+  '0x4200000000000000000000000000000000000006': { decimals: 18, symbol: 'WETH' },
+  '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913': { decimals: 6, symbol: 'USDC' },
+  '0x50c5725949a6f0c72e6c4a641f24049a917db0cb': { decimals: 18, symbol: 'DAI' },
+  '0xfde4c96c8593536e31f229ea8f37b2ada2699bb2': { decimals: 6, symbol: 'USDT' },
+  '0xc02aa39b223fe8d0a0e5c4f27ead9083c756cc2': { decimals: 18, symbol: 'WETH' },
+  '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': { decimals: 6, symbol: 'USDC' },
+  '0x6b175474e89094c44da98b954eedeac495271d0f': { decimals: 18, symbol: 'DAI' },
+  '0xdac17f958d2ee523a2206206994597c13d831ec7': { decimals: 6, symbol: 'USDT' },
+};
+
 const json = (res, status, payload) => {
   res.statusCode = status;
   res.setHeader('Content-Type', 'application/json');
@@ -127,6 +138,12 @@ const getTokenMeta = async (tokenAddress, chainId) => {
   const cached = tokenMetaCache.get(key);
   if (shouldUseCache(cached, TOKEN_META_CACHE_TTL_MS)) {
     return cached.value;
+  }
+
+  const knownMeta = KNOWN_TOKEN_META[tokenAddress.toLowerCase()];
+  if (knownMeta) {
+    tokenMetaCache.set(key, { ts: nowMs(), value: knownMeta });
+    return knownMeta;
   }
 
   const [decimalsHex, symbolHex] = await Promise.all([

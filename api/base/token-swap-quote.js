@@ -232,6 +232,14 @@ module.exports = async function handler(req, res) {
 
   try {
     if (fromAddress) {
+      if (!ALCHEMY_API_KEY || String(ALCHEMY_API_KEY).includes('YOUR_ALCHEMY_API_KEY')) {
+        return json(res, 503, {
+          success: false,
+          data: null,
+          error: 'Live swap execution is temporarily unavailable (quote provider not configured).',
+        });
+      }
+
       const fromTokenLower = fromToken.toLowerCase();
       const fromDecimals = TOKEN_DECIMALS[fromTokenLower] ?? 18;
       const requestedAmountRaw = toAmountRaw(amount, fromDecimals);

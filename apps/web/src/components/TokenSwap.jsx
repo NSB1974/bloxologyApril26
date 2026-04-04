@@ -152,7 +152,12 @@ const TokenSwap = () => {
         const result = await response.json();
 
         if (!response.ok || !result.success) {
-          throw new Error(result.error || 'Failed to fetch quote');
+          const providerUnavailable = response.status === 503;
+          throw new Error(
+            providerUnavailable
+              ? 'Live swaps are temporarily unavailable. Please try again shortly.'
+              : (result.error || 'Failed to fetch quote')
+          );
         }
 
         setQuote(result.data);
