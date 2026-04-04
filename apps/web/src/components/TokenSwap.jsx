@@ -354,6 +354,38 @@ const TokenSwap = () => {
     && parsedAmount > 0
     && parsedAmount > parsedBalance;
 
+  const copyDebugReport = async () => {
+    const payload = {
+      timestamp: new Date().toISOString(),
+      chainId: selectedNetwork.id,
+      chainName: selectedNetwork.name,
+      fromAddress: activeAddress || null,
+      fromToken,
+      toToken,
+      amount,
+      fromTokenBalance,
+      quoteProvider: quote?.provider || null,
+      executionType: quote?.execution?.type || null,
+      hasExecution: Boolean(quote?.execution),
+      error: error || null,
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+    };
+
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+      toast({
+        title: 'Debug report copied',
+        description: 'Swap diagnostics copied to clipboard.',
+      });
+    } catch (_) {
+      toast({
+        variant: 'destructive',
+        title: 'Copy failed',
+        description: 'Could not copy debug report. Check browser clipboard permissions.',
+      });
+    }
+  };
+
   return (
     <div className="max-w-md mx-auto space-y-6">
       <Card className="glass-card-strong border-border/50 shadow-2xl">
@@ -482,7 +514,18 @@ const TokenSwap = () => {
             {error && (
               <Alert variant="destructive" className="glass-card border-destructive/50 mt-4">
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="font-medium">{error}</AlertDescription>
+                <AlertDescription className="font-medium space-y-2">
+                  <p>{error}</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={copyDebugReport}
+                    className="h-7 text-xs"
+                  >
+                    Copy debug report
+                  </Button>
+                </AlertDescription>
               </Alert>
             )}
 
