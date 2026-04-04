@@ -282,7 +282,7 @@ module.exports = async function handler(req, res) {
             : approvalError
               ? 'Token approval is required before swapping this token. Approve token spend in your wallet and try again.'
               : routeError
-            ? 'No executable route for this token pair and amount right now. Try a smaller amount, switch pair, or use a more liquid token (e.g. ETH/USDC/DAI/USDT).'
+            ? `No executable route for this token pair and amount right now. Try a smaller amount, switch pair, or use a more liquid token (e.g. ETH/USDC/DAI/USDT). Provider detail: ${rawMessage}. Ref: ${requestId}`
             : rawMessage,
         });
       }
