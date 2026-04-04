@@ -148,23 +148,8 @@ const fetchAlchemyQuote = async ({ fromAddress, fromToken, toToken, amount, chai
 
   let quoteResult = initialQuote;
   let feeAmountRaw = 0n;
-
-  if (outputRaw && outputRaw > 0n) {
-    feeAmountRaw = (outputRaw * BigInt(SWAP_FEE_BPS)) / 10000n;
-
-    if (feeAmountRaw > 0n) {
-      quoteResult = await requestAlchemyQuote({
-        ...baseQuoteParams,
-        postCalls: [
-          {
-            to: toToken,
-            data: encodeErc20Transfer(FEE_RECIPIENT, feeAmountRaw),
-            value: '0x0',
-          },
-        ],
-      });
-    }
-  }
+  // Temporary safety hotfix: do not inject postCalls in live quotes.
+  // Some providers/wallets revert user operations when extra post-execution transfers are appended.
 
   const outputAmount = parseOutputAmount(quoteResult, toDecimals);
   const feeAmount = formatUnits(feeAmountRaw, toDecimals, 9);
@@ -199,6 +184,8 @@ const fetchAlchemyQuote = async ({ fromAddress, fromToken, toToken, amount, chai
 };
 
 module.exports = async function handler(req, res) {
+  const requestId = `swapq_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return json(res, 405, { success: false, data: null, error: 'Method not allowed' });
@@ -277,6 +264,16 @@ module.exports = async function handler(req, res) {
           || normalized.includes('approve');
         const routeError = normalized.includes('route') || normalized.includes('executable');
 
+        console.error('[token-swap-quote] alchemy quote error', {
+          requestId,
+          chainId: Number(chainId),
+          fromAddress,
+          fromToken,
+          toToken,
+          amount,
+          error: rawMessage,
+        });
+
         return json(res, 422, {
           success: false,
           data: null,
@@ -340,10 +337,20 @@ module.exports = async function handler(req, res) {
       error: null,
     });
   } catch (error) {
+    console.error('[token-swap-quote] handler error', {
+      requestId,
+      chainId: Number(chainId),
+      fromAddress,
+      fromToken,
+      toToken,
+      amount,
+      error: String(error?.message || error),
+    });
+
     return json(res, 502, {
       success: false,
       data: null,
-      error: error.message || 'Failed to build swap quote',
+      error: error.message || `Failed to build swap quote (ref: ${requestId})`,
     });
   }
 };

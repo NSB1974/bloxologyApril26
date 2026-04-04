@@ -137,6 +137,7 @@ const TokenSwap = () => {
       setError(null);
 
       try {
+        let quoteResult = null;
         const response = await apiServerClient.fetch('/base/token-swap-quote', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -149,19 +150,37 @@ const TokenSwap = () => {
           })
         });
 
-        const result = await response.json();
+        quoteResult = await response.json();
 
-        if (!response.ok || !result.success) {
+        if (!response.ok || !quoteResult.success) {
           const providerUnavailable = response.status === 503;
+          console.error('[TokenSwap] quote fetch failed', {
+            status: response.status,
+            chainId: selectedNetwork.id,
+            fromAddress: activeAddress,
+            fromToken,
+            toToken,
+            amount,
+            apiError: quoteResult?.error,
+            payload: quoteResult,
+          });
           throw new Error(
             providerUnavailable
               ? 'Live swaps are temporarily unavailable. Please try again shortly.'
-              : (result.error || 'Failed to fetch quote')
+              : (quoteResult.error || 'Failed to fetch quote')
           );
         }
 
-        setQuote(result.data);
+        setQuote(quoteResult.data);
       } catch (err) {
+        console.error('[TokenSwap] quote request exception', {
+          chainId: selectedNetwork.id,
+          fromAddress: activeAddress,
+          fromToken,
+          toToken,
+          amount,
+          error: err?.message || String(err),
+        });
         setError(err.message);
         setQuote(null);
       } finally {
@@ -311,6 +330,15 @@ const TokenSwap = () => {
       setAmount('');
       setQuote(null);
     } catch (err) {
+      console.error('[TokenSwap] execute swap failed', {
+        chainId: selectedNetwork.id,
+        fromAddress: activeAddress,
+        fromToken,
+        toToken,
+        amount,
+        executionType: quote?.execution?.type,
+        error: err?.message || String(err),
+      });
       setError(err.message || 'Swap execution failed');
       setIsSwapping(false);
     }
