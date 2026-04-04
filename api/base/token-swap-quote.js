@@ -1,4 +1,4 @@
-const { formatUnits, getUsdPrice, CHAIN_ID_TO_COINGECKO_PLATFORM, isAddress, json } = require('./_helpers');
+const { formatUnits, getUsdPrice, getErc20Balance, CHAIN_ID_TO_COINGECKO_PLATFORM, isAddress, json } = require('./_helpers');
 
 const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY;
 const FEE_RECIPIENT = '0x5ab137b17c3584a9DeBBa742964F09F84a4A5A7C';
@@ -15,12 +15,16 @@ const TOKEN_DECIMALS = {
   '0xdac17f958d2ee523a2206206994597c13d831ec7': 6,
 };
 
-const toAmountHex = (amountDecimal, decimals) => {
+const toAmountRaw = (amountDecimal, decimals) => {
   const [wholePart, fractionPart = ''] = String(amountDecimal).trim().split('.');
   const safeWhole = wholePart || '0';
   const safeFraction = fractionPart.replace(/[^0-9]/g, '');
   const paddedFraction = (safeFraction + '0'.repeat(decimals)).slice(0, decimals);
-  const value = BigInt(safeWhole || '0') * 10n ** BigInt(decimals) + BigInt(paddedFraction || '0');
+  return BigInt(safeWhole || '0') * 10n ** BigInt(decimals) + BigInt(paddedFraction || '0');
+};
+
+const toAmountHex = (amountDecimal, decimals) => {
+  const value = toAmountRaw(amountDecimal, decimals);
   return `0x${value.toString(16)}`;
 };
 
@@ -228,6 +232,23 @@ module.exports = async function handler(req, res) {
 
   try {
     if (fromAddress) {
+      const fromTokenLower = fromToken.toLowerCase();
+      const fromDecimals = TOKEN_DECIMALS[fromTokenLower] ?? 18;
+      const requestedAmountRaw = toAmountRaw(amount, fromDecimals);
+
+      try {
+        const fromBalance = await getErc20Balance(fromAddress, fromToken, Number(chainId));
+        if (fromBalance.balanceRaw < requestedAmountRaw) {
+          return json(res, 400, {
+            success: false,
+            data: null,
+            error: `Insufficient ${fromBalance.symbol || 'token'} balance. Available ${fromBalance.balance}, requested ${amount}.`,
+          });
+        }
+      } catch (_) {
+        // If balance pre-check fails, continue to quote request and return provider error.
+      }
+
       try {
         const alchemyQuote = await fetchAlchemyQuote({ fromAddress, fromToken, toToken, amount, chainId });
         if (alchemyQuote) {
@@ -240,12 +261,22 @@ module.exports = async function handler(req, res) {
       } catch (alchemyError) {
         const rawMessage = String(alchemyError?.message || 'Failed to fetch live executable quote');
         const normalized = rawMessage.toLowerCase();
+        const insufficientError = normalized.includes('insufficient')
+          || normalized.includes('balance')
+          || normalized.includes('funds');
+        const approvalError = normalized.includes('allowance')
+          || normalized.includes('approval')
+          || normalized.includes('approve');
         const routeError = normalized.includes('route') || normalized.includes('executable');
 
         return json(res, 422, {
           success: false,
           data: null,
-          error: routeError
+          error: insufficientError
+            ? 'Insufficient token balance for this swap amount. Lower the amount or top up your wallet.'
+            : approvalError
+              ? 'Token approval is required before swapping this token. Approve token spend in your wallet and try again.'
+              : routeError
             ? 'No executable route for this token pair and amount right now. Try a smaller amount, switch pair, or use a more liquid token (e.g. ETH/USDC/DAI/USDT).'
             : rawMessage,
         });
