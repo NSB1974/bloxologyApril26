@@ -70,47 +70,71 @@ const LockPage = () => {
     e.preventDefault();
     if (!isConnected || !wallet) return toast.error('Connect wallet first');
     if (!amount || parseFloat(amount) <= 0) return toast.error('Enter a valid amount');
+    if (!window.ethereum) return toast.error('No wallet extension detected. Please install MetaMask.');
 
     setTxStatus('pending');
     setTxHash(null);
     setTxError(null);
 
     try {
-      const networkName = selectedNetwork?.name.split(' ')[0].toLowerCase() || 'ethereum';
-      
-      const response = await apiServerClient.fetch('/lock', {
+      const selectedDuration = DURATIONS.find(d => d.days.toString() === duration);
+      const unlockDate = new Date(
+        Date.now() + (selectedDuration?.days || 90) * 24 * 60 * 60 * 1000
+      ).toISOString();
+
+      const response = await apiServerClient.fetch('/base/lock', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          token,
-          amount,
-          duration: parseInt(duration),
           walletAddress: wallet,
-          network: networkName
+          tokenAddress: token,
+          amount,
+          unlockDate,
+          chainId: selectedNetwork.id,
         })
       });
 
-      const data = await response.json();
-      if (!response.ok || !data.success) throw new Error(data.error || 'Failed to lock tokens');
+      let data;
+      try {
+        data = await response.json();
+      } catch (_) {
+        throw new Error('Server returned an invalid response. Please try again.');
+      }
 
-      setTxStatus('pending'); // Will auto-transition to success in TransactionStatus component
-      setTxHash(data.transactionHash);
-      
-      const tokenSymbol = allTokens.find(t => t.address === token)?.symbol || 'Tokens';
-      
+      if (!response.ok || !data.success) throw new Error(data.error || 'Failed to prepare lock transaction');
+
+      const { transaction, lockDetails } = data.data;
+
+      const txHashResult = await window.ethereum.request({
+        method: 'eth_sendTransaction',
+        params: [{
+          from: wallet,
+          to: transaction.to,
+          data: transaction.data,
+          value: transaction.value,
+        }],
+      });
+
+      if (!txHashResult) throw new Error('Wallet did not return a transaction hash.');
+
+      setTxStatus('success');
+      setTxHash(txHashResult);
+
+      const tokenSymbol = allTokens.find(t => t.address?.toLowerCase() === token?.toLowerCase())?.symbol || 'Tokens';
+
       saveToHistory({
-        id: data.lockId || Date.now(),
+        id: Date.now(),
         type: 'Lock',
-        details: `Locked ${amount} ${tokenSymbol} for ${duration} days`,
-        rewards: data.rewards,
-        unlockDate: data.unlockDate,
-        hash: data.transactionHash,
+        details: `Locked ${lockDetails.amount} ${lockDetails.symbol} for ${selectedDuration?.days || 90} days`,
+        rewards: selectedDuration?.apy || '0%',
+        unlockDate: lockDetails.unlockDate,
+        hash: txHashResult,
         date: new Date().toISOString(),
         network: selectedNetwork.name,
         status: 'locked'
       });
 
-      toast.success('Token lock transaction submitted!');
+      toast.success('Tokens locked successfully!');
       setAmount('');
 
     } catch (err) {
