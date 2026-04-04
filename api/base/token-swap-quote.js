@@ -3,6 +3,12 @@ const { formatUnits, getUsdPrice, getErc20Balance, CHAIN_ID_TO_COINGECKO_PLATFOR
 const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY;
 const FEE_RECIPIENT = '0x5ab137b17c3584a9DeBBa742964F09F84a4A5A7C';
 const SWAP_FEE_BPS = 40;
+const NATIVE_TOKEN_ALIAS = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
+
+const WRAPPED_NATIVE_BY_CHAIN = {
+  8453: '0x4200000000000000000000000000000000000006',
+  1: '0xc02aa39b223fe8d0a0e5c4f27ead9083c756cc2',
+};
 
 const TOKEN_DECIMALS = {
   '0x4200000000000000000000000000000000000006': 18,
@@ -127,7 +133,7 @@ const requestAlchemyQuote = async (quoteParams) => {
   return payload.result;
 };
 
-const fetchAlchemyQuote = async ({ fromAddress, fromToken, toToken, amount, chainId }) => {
+const fetchAlchemyQuote = async ({ fromAddress, fromToken, toToken, amount, chainId, providerToToken }) => {
   if (!ALCHEMY_API_KEY) return null;
 
   const fromTokenLower = fromToken.toLowerCase();
@@ -139,7 +145,7 @@ const fetchAlchemyQuote = async ({ fromAddress, fromToken, toToken, amount, chai
     from: fromAddress,
     chainId: toQuantityHex(chainId),
     fromToken,
-    toToken,
+    toToken: providerToToken || toToken,
     fromAmount: fromAmountHex,
   };
 
@@ -322,6 +328,43 @@ module.exports = async function handler(req, res) {
                 error: String(retryError?.message || retryError),
               });
             }
+          }
+        }
+
+        // Some providers route wrapped native outputs using a native alias token identifier.
+        const wrappedNativeAddress = WRAPPED_NATIVE_BY_CHAIN[Number(chainId)];
+        if (routeError && wrappedNativeAddress && toToken.toLowerCase() === wrappedNativeAddress.toLowerCase()) {
+          try {
+            const aliasQuote = await fetchAlchemyQuote({
+              fromAddress,
+              fromToken,
+              toToken,
+              amount,
+              chainId,
+              providerToToken: NATIVE_TOKEN_ALIAS,
+            });
+
+            if (aliasQuote) {
+              return json(res, 200, {
+                success: true,
+                data: {
+                  ...aliasQuote,
+                  providerToToken: NATIVE_TOKEN_ALIAS,
+                  tokenAliasUsed: true,
+                },
+                error: null,
+              });
+            }
+          } catch (aliasError) {
+            console.error('[token-swap-quote] native alias retry failed', {
+              requestId,
+              chainId: Number(chainId),
+              fromAddress,
+              fromToken,
+              toToken,
+              amount,
+              error: String(aliasError?.message || aliasError),
+            });
           }
         }
 
