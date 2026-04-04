@@ -232,8 +232,18 @@ module.exports = async function handler(req, res) {
             error: null,
           });
         }
-      } catch (_) {
-        // fall through to deterministic quote fallback below
+      } catch (alchemyError) {
+        const rawMessage = String(alchemyError?.message || 'Failed to fetch live executable quote');
+        const normalized = rawMessage.toLowerCase();
+        const routeError = normalized.includes('route') || normalized.includes('executable');
+
+        return json(res, 422, {
+          success: false,
+          data: null,
+          error: routeError
+            ? 'No executable route for this token pair and amount right now. Try a smaller amount, switch pair, or use a more liquid token (e.g. ETH/USDC/DAI/USDT).'
+            : rawMessage,
+        });
       }
     }
 
