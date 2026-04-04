@@ -1,6 +1,7 @@
 const { formatUnits, getUsdPrice, getErc20Balance, CHAIN_ID_TO_COINGECKO_PLATFORM, isAddress, json } = require('./_helpers');
 
 const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY;
+const ZEROX_API_KEY = process.env.ZEROX_API_KEY;
 const FEE_RECIPIENT = '0x5ab137b17c3584a9DeBBa742964F09F84a4A5A7C';
 const SWAP_FEE_BPS = 40;
 const NATIVE_TOKEN_ALIAS = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
@@ -134,6 +135,10 @@ const requestAlchemyQuote = async (quoteParams) => {
 };
 
 const fetchZeroXQuote = async ({ fromAddress, fromToken, toToken, amount, chainId }) => {
+  if (!ZEROX_API_KEY || String(ZEROX_API_KEY).includes('YOUR_ZEROX_API_KEY')) {
+    throw new Error('0x fallback unavailable: ZEROX_API_KEY is not configured');
+  }
+
   const fromTokenLower = fromToken.toLowerCase();
   const toTokenLower = toToken.toLowerCase();
   const fromDecimals = TOKEN_DECIMALS[fromTokenLower] ?? 18;
@@ -152,6 +157,7 @@ const fetchZeroXQuote = async ({ fromAddress, fromToken, toToken, amount, chainI
     headers: {
       Accept: 'application/json',
       '0x-version': 'v2',
+      '0x-api-key': ZEROX_API_KEY,
     },
   });
 
