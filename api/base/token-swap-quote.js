@@ -230,9 +230,11 @@ module.exports = async function handler(req, res) {
       const fromTokenLower = fromToken.toLowerCase();
       const fromDecimals = TOKEN_DECIMALS[fromTokenLower] ?? 18;
       const requestedAmountRaw = toAmountRaw(amount, fromDecimals);
+      let availableBalanceRaw = null;
 
       try {
         const fromBalance = await getErc20Balance(fromAddress, fromToken, Number(chainId));
+        availableBalanceRaw = fromBalance.balanceRaw;
         if (fromBalance.balanceRaw < requestedAmountRaw) {
           return json(res, 400, {
             success: false,
@@ -282,6 +284,46 @@ module.exports = async function handler(req, res) {
           amount,
           error: rawMessage,
         });
+
+        // Retry once with a slightly smaller amount for near-max swaps.
+        if (routeError && availableBalanceRaw != null && requestedAmountRaw >= availableBalanceRaw) {
+          const retryRaw = (requestedAmountRaw * 995n) / 1000n; // 99.5%
+          if (retryRaw > 0n && retryRaw < requestedAmountRaw) {
+            const retryAmount = formatUnits(retryRaw, fromDecimals, fromDecimals);
+            try {
+              const retryQuote = await fetchAlchemyQuote({
+                fromAddress,
+                fromToken,
+                toToken,
+                amount: retryAmount,
+                chainId,
+              });
+              if (retryQuote) {
+                return json(res, 200, {
+                  success: true,
+                  data: {
+                    ...retryQuote,
+                    requestedAmount: amount,
+                    adjustedAmount: retryAmount,
+                    autoAdjusted: true,
+                  },
+                  error: null,
+                });
+              }
+            } catch (retryError) {
+              console.error('[token-swap-quote] retry quote failed', {
+                requestId,
+                chainId: Number(chainId),
+                fromAddress,
+                fromToken,
+                toToken,
+                amount,
+                retryAmount,
+                error: String(retryError?.message || retryError),
+              });
+            }
+          }
+        }
 
         return json(res, 422, {
           success: false,
