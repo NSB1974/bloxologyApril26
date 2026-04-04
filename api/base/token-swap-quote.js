@@ -240,7 +240,16 @@ module.exports = async function handler(req, res) {
             error: `Insufficient ${fromBalance.symbol || 'token'} balance. Available ${fromBalance.balance}, requested ${amount}.`,
           });
         }
-      } catch (_) {
+      } catch (balanceError) {
+        console.error('[token-swap-quote] balance precheck failed', {
+          requestId,
+          chainId: Number(chainId),
+          fromAddress,
+          fromToken,
+          toToken,
+          amount,
+          error: String(balanceError?.message || balanceError),
+        });
         // If balance pre-check fails, continue to quote request and return provider error.
       }
 

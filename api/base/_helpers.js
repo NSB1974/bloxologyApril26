@@ -1,4 +1,26 @@
-const BASE_RPC_ENDPOINT = process.env.BASE_RPC_ENDPOINT || 'https://base-rpc.publicnode.com';
+const DEFAULT_BASE_RPC_ENDPOINT = 'https://base-rpc.publicnode.com';
+
+const sanitizeRpcEndpoint = (value, fallback) => {
+  const raw = String(value || '').trim();
+  if (!raw) return fallback;
+
+  const lowered = raw.toLowerCase();
+  const hasPlaceholder = lowered.includes('your_')
+    || lowered.includes('<')
+    || lowered.includes('replace_me');
+
+  if (hasPlaceholder) return fallback;
+
+  try {
+    const parsed = new URL(raw);
+    if (!/^https?:$/.test(parsed.protocol)) return fallback;
+    return raw;
+  } catch (_) {
+    return fallback;
+  }
+};
+
+const BASE_RPC_ENDPOINT = sanitizeRpcEndpoint(process.env.BASE_RPC_ENDPOINT, DEFAULT_BASE_RPC_ENDPOINT);
 const COINGECKO_BASE = 'https://api.coingecko.com/api/v3/simple/price';
 
 const CHAIN_ID_TO_RPC_URL = {
