@@ -352,6 +352,7 @@ module.exports = async function handler(req, res) {
           || normalized.includes('approval')
           || normalized.includes('approve');
         const routeError = normalized.includes('route') || normalized.includes('executable');
+        let fallbackDetail = null;
 
         console.error('[token-swap-quote] alchemy quote error', {
           requestId,
@@ -452,6 +453,7 @@ module.exports = async function handler(req, res) {
               });
             }
           } catch (zeroXError) {
+            fallbackDetail = String(zeroXError?.message || zeroXError);
             console.error('[token-swap-quote] 0x fallback failed', {
               requestId,
               chainId: Number(chainId),
@@ -472,7 +474,7 @@ module.exports = async function handler(req, res) {
             : approvalError
               ? 'Token approval is required before swapping this token. Approve token spend in your wallet and try again.'
               : routeError
-            ? `No executable route for this token pair and amount right now. Try a smaller amount, switch pair, or use a more liquid token (e.g. ETH/USDC/DAI/USDT). Provider detail: ${rawMessage}. Ref: ${requestId}`
+            ? `No executable route for this token pair and amount right now. Try a smaller amount, switch pair, or use a more liquid token (e.g. ETH/USDC/DAI/USDT). Provider detail: ${rawMessage}.${fallbackDetail ? ` Fallback detail: ${fallbackDetail}.` : ''} Ref: ${requestId}`
             : rawMessage,
         });
       }
