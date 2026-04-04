@@ -65,6 +65,8 @@ const TokenSwap = () => {
     symbol: '',
     decimals: ''
   });
+  const [fromTokenBalance, setFromTokenBalance] = useState(null);
+  const [loadingBalance, setLoadingBalance] = useState(false);
 
   // Combine default tokens with custom tokens for current network
   const customTokensForNetwork = customTokens.filter(
@@ -87,6 +89,36 @@ const TokenSwap = () => {
       setToToken(defaultTokens[1].address);
     }
   }, [activeAddress, selectedNetwork.id, customTokens]);
+
+  // Fetch balance for the "from" token
+  useEffect(() => {
+    const fetchBalance = async () => {
+      if (!activeAddress || !fromToken) {
+        setFromTokenBalance(null);
+        return;
+      }
+
+      setLoadingBalance(true);
+      try {
+        const response = await apiServerClient.fetch(
+          `/base/token-balance?walletAddress=${activeAddress}&tokenAddress=${fromToken}&chainId=${selectedNetwork.id}`
+        );
+        const data = await response.json();
+        if (data.success && data.data) {
+          setFromTokenBalance(data.data.balance);
+        } else {
+          setFromTokenBalance(null);
+        }
+      } catch (err) {
+        console.error('Failed to fetch token balance:', err);
+        setFromTokenBalance(null);
+      } finally {
+        setLoadingBalance(false);
+      }
+    };
+
+    fetchBalance();
+  }, [fromToken, activeAddress, selectedNetwork.id]);
 
   // Debounced quote fetching
   useEffect(() => {
@@ -291,7 +323,29 @@ const TokenSwap = () => {
           <form onSubmit={executeSwap} className="space-y-2">
             {/* From Token */}
             <div className="glass-card p-4 rounded-2xl space-y-3 border border-border/30">
-              <Label className="text-xs text-[var(--text-secondary)]">You pay</Label>
+              <div className="flex justify-between items-center">
+                <Label className="text-xs text-[var(--text-secondary)]">You pay</Label>
+                <div className="flex items-center gap-2">
+                  {loadingBalance ? (
+                    <span className="text-xs text-[var(--text-secondary)]">Loading balance...</span>
+                  ) : fromTokenBalance ? (
+                    <>
+                      <span className="text-xs text-[var(--text-secondary)]">
+                        Balance: {parseFloat(fromTokenBalance).toLocaleString(undefined, { maximumFractionDigits: 9 })}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setAmount(fromTokenBalance)}
+                        className="h-6 px-2 text-xs font-semibold text-primary hover:bg-primary/10"
+                      >
+                        Max
+                      </Button>
+                    </>
+                  ) : null}
+                </div>
+              </div>
               <div className="flex gap-3">
                 <Input
                   type="number"
