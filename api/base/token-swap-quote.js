@@ -1,6 +1,7 @@
 const { formatUnits, getUsdPrice, getErc20Balance, CHAIN_ID_TO_COINGECKO_PLATFORM, isAddress, json } = require('./_helpers');
 
 const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY;
+const UNISWAP_API_KEY = process.env.UNISWAP_API_KEY;
 const ODOS_API_KEY = process.env.ODOS_API_KEY;
 const FEE_RECIPIENT = '0x5ab137b17c3584a9DeBBa742964F09F84a4A5A7C';
 const SWAP_FEE_BPS = 40;
@@ -242,6 +243,82 @@ const fetchOdosQuote = async ({ fromAddress, fromToken, toToken, amount, chainId
   };
 };
 
+const fetchUniswapQuote = async ({ fromAddress, fromToken, toToken, amount, chainId }) => {
+  if (!UNISWAP_API_KEY || String(UNISWAP_API_KEY).includes('YOUR_UNISWAP_API_KEY')) {
+    throw new Error('Uniswap fallback unavailable: UNISWAP_API_KEY is not configured');
+  }
+
+  const fromTokenLower = fromToken.toLowerCase();
+  const toTokenLower = toToken.toLowerCase();
+  const fromDecimals = TOKEN_DECIMALS[fromTokenLower] ?? 18;
+  const toDecimals = TOKEN_DECIMALS[toTokenLower] ?? 18;
+  const sellAmountRaw = toAmountRaw(amount, fromDecimals).toString();
+
+  const quoteResponse = await fetch('https://trade-api.gateway.uniswap.org/v1/quote', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': UNISWAP_API_KEY,
+    },
+    body: JSON.stringify({
+      type: 'EXACT_INPUT',
+      amount: sellAmountRaw,
+      tokenInChainId: Number(chainId),
+      tokenOutChainId: Number(chainId),
+      tokenIn: fromToken,
+      tokenOut: toToken,
+      swapper: fromAddress,
+      recipient: fromAddress,
+      slippageTolerance: 1,
+      urgency: 'normal',
+      protocols: ['V2', 'V3', 'MIXED'],
+    }),
+  });
+
+  const quotePayload = await quoteResponse.json().catch(() => ({}));
+  if (!quoteResponse.ok) {
+    throw new Error(quotePayload?.detail || quotePayload?.errorCode || `Uniswap quote request failed: ${quoteResponse.status}`);
+  }
+
+  const quote = quotePayload?.quote || {};
+  const methodParameters = quote?.methodParameters || quotePayload?.methodParameters;
+  if (!methodParameters?.to || !methodParameters?.calldata) {
+    throw new Error('Uniswap quote did not return executable methodParameters');
+  }
+
+  const buyAmountRaw = parseRawAmount(quote?.output?.amount);
+  const outputAmount = buyAmountRaw != null ? formatUnits(buyAmountRaw, toDecimals, 9) : '0';
+  const exchangeRate = Number(amount) > 0 && Number(outputAmount) > 0 ? Number(outputAmount) / Number(amount) : 0;
+
+  return {
+    outputAmount,
+    feeAmount: '0',
+    netOutputAmount: outputAmount,
+    feeRecipient: FEE_RECIPIENT,
+    exchangeRate: Number.isFinite(exchangeRate) ? exchangeRate.toFixed(9) : '0',
+    gasFee: '0',
+    slippage: '1.00',
+    fromUsd: null,
+    toUsd: null,
+    estimatedGasUsd: null,
+    pricing: {
+      fromTokenSource: 'uniswap-quote',
+      toTokenSource: 'uniswap-quote',
+    },
+    provider: 'uniswap',
+    execution: {
+      type: 'transaction',
+      transaction: {
+        to: methodParameters.to,
+        data: methodParameters.calldata,
+        value: methodParameters.value || '0x0',
+        gasLimit: quote?.gasUseEstimate ? `0x${Number(quote.gasUseEstimate).toString(16)}` : undefined,
+      },
+    },
+    rawQuote: quotePayload,
+  };
+};
+
 const fetchAlchemyQuote = async ({ fromAddress, fromToken, toToken, amount, chainId, providerToToken }) => {
   if (!ALCHEMY_API_KEY) return null;
 
@@ -389,7 +466,7 @@ module.exports = async function handler(req, res) {
           || normalized.includes('approval')
           || normalized.includes('approve');
         const routeError = normalized.includes('route') || normalized.includes('executable');
-        let fallbackDetail = null;
+        const fallbackErrors = [];
 
         console.error('[token-swap-quote] alchemy quote error', {
           requestId,
@@ -478,7 +555,33 @@ module.exports = async function handler(req, res) {
           }
         }
 
-        // Fallback to Odos quote provider when Alchemy cannot route.
+        // Fallback to Uniswap quote provider when Alchemy cannot route.
+        if (routeError) {
+          try {
+            const uniswapQuote = await fetchUniswapQuote({ fromAddress, fromToken, toToken, amount, chainId });
+            if (uniswapQuote) {
+              return json(res, 200, {
+                success: true,
+                data: uniswapQuote,
+                error: null,
+              });
+            }
+          } catch (uniswapError) {
+            const detail = String(uniswapError?.message || uniswapError);
+            fallbackErrors.push(`Uniswap: ${detail}`);
+            console.error('[token-swap-quote] uniswap fallback failed', {
+              requestId,
+              chainId: Number(chainId),
+              fromAddress,
+              fromToken,
+              toToken,
+              amount,
+              error: detail,
+            });
+          }
+        }
+
+        // Fallback to Odos quote provider when Alchemy and Uniswap cannot route.
         if (routeError) {
           try {
             const odosQuote = await fetchOdosQuote({ fromAddress, fromToken, toToken, amount, chainId });
@@ -490,7 +593,8 @@ module.exports = async function handler(req, res) {
               });
             }
           } catch (odosError) {
-            fallbackDetail = String(odosError?.message || odosError);
+            const detail = String(odosError?.message || odosError);
+            fallbackErrors.push(`Odos: ${detail}`);
             console.error('[token-swap-quote] odos fallback failed', {
               requestId,
               chainId: Number(chainId),
@@ -498,7 +602,7 @@ module.exports = async function handler(req, res) {
               fromToken,
               toToken,
               amount,
-              error: String(odosError?.message || odosError),
+              error: detail,
             });
           }
         }
@@ -511,7 +615,7 @@ module.exports = async function handler(req, res) {
             : approvalError
               ? 'Token approval is required before swapping this token. Approve token spend in your wallet and try again.'
               : routeError
-            ? `No executable route for this token pair and amount right now. Try a smaller amount, switch pair, or use a more liquid token (e.g. ETH/USDC/DAI/USDT). Provider detail: ${rawMessage}.${fallbackDetail ? ` Fallback detail: ${fallbackDetail}.` : ''} Ref: ${requestId}`
+            ? `No executable route for this token pair and amount right now. Try a smaller amount, switch pair, or use a more liquid token (e.g. ETH/USDC/DAI/USDT). Provider detail: ${rawMessage}.${fallbackErrors.length ? ` Fallback detail: ${fallbackErrors.join(' | ')}.` : ''} Ref: ${requestId}`
             : rawMessage,
         });
       }
