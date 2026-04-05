@@ -20,6 +20,7 @@ const validateAddress = (address) => {
 // GET /base/token-balance - Fetch token balance for a wallet
 const require = createRequire(import.meta.url);
 const liveTokenSwapQuoteHandler = require('../../../../api/base/token-swap-quote.js');
+const liveLockHandler = require('../../../../api/base/lock.js');
 router.get('/token-balance', async (req, res) => {
   const { walletAddress, tokenAddress } = req.query;
 
@@ -155,6 +156,11 @@ router.get('/liquidity-pool', async (req, res) => {
 // POST /base/token-swap-quote - Get token swap quote
 router.post('/token-swap-quote', async (req, res) => {
   return liveTokenSwapQuoteHandler(req, res);
+});
+
+// POST /base/lock - Build lock transaction payload
+router.post('/lock', async (req, res) => {
+  return liveLockHandler(req, res);
 });
 
 // GET /base/wallet-balances - Fetch balances for multiple tokens
