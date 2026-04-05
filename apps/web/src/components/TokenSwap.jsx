@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowDownUp, Loader2, CheckCircle, AlertCircle, Settings, Info } from 'lucide-react';
 import { ethers } from 'ethers';
+import { useNavigate } from 'react-router-dom';
 import apiServerClient from '@/lib/apiServerClient.js';
 import { useBaseAuth, useNetwork } from '@/contexts/BaseAuthContext.jsx';
 import { Button } from '@/components/ui/button';
@@ -25,6 +26,7 @@ const ERC20_ABI = [
 ];
 
 const TokenSwap = () => {
+  const navigate = useNavigate();
   const { activeAddress } = useBaseAuth();
   const { selectedNetwork, customTokens, addCustomToken } = useNetwork();
   const { toast } = useToast();
@@ -373,7 +375,13 @@ const TokenSwap = () => {
       <Card className="glass-card-strong border-border/50 shadow-2xl">
         <CardHeader className="flex flex-row items-center justify-between pb-4">
           <CardTitle className="text-xl text-[var(--text-primary)]">Swap on {selectedNetwork.name}</CardTitle>
-          <Button variant="ghost" size="icon" className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/settings')}
+            className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+          >
             <Settings className="h-5 w-5" />
           </Button>
         </CardHeader>

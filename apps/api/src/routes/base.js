@@ -5,8 +5,8 @@ import {
   fetchTokenPrice,
   fetchTokenMetadata,
   fetchLiquidityPoolData,
-  getTokenSwapQuote,
 } from '../services/baseRpcService.js';
+import { createRequire } from 'module';
 
 const router = express.Router();
 
@@ -18,6 +18,8 @@ const validateAddress = (address) => {
 };
 
 // GET /base/token-balance - Fetch token balance for a wallet
+const require = createRequire(import.meta.url);
+const liveTokenSwapQuoteHandler = require('../../../../api/base/token-swap-quote.js');
 router.get('/token-balance', async (req, res) => {
   const { walletAddress, tokenAddress } = req.query;
 
@@ -152,36 +154,7 @@ router.get('/liquidity-pool', async (req, res) => {
 
 // POST /base/token-swap-quote - Get token swap quote
 router.post('/token-swap-quote', async (req, res) => {
-  const { fromToken, toToken, amount } = req.body;
-
-  if (!fromToken || !toToken || !amount) {
-    return res.status(400).json({
-      success: false,
-      data: null,
-      error: 'Missing required body parameters: fromToken, toToken, amount',
-    });
-  }
-
-  try {
-    validateAddress(fromToken);
-    validateAddress(toToken);
-  } catch (error) {
-    return res.status(400).json({
-      success: false,
-      data: null,
-      error: error.message,
-    });
-  }
-
-  const data = await getTokenSwapQuote(fromToken, toToken, amount);
-
-  logger.info(`Token swap quote generated: ${amount} ${fromToken} -> ${toToken}`);
-
-  res.json({
-    success: true,
-    data,
-    error: null,
-  });
+  return liveTokenSwapQuoteHandler(req, res);
 });
 
 // GET /base/wallet-balances - Fetch balances for multiple tokens
