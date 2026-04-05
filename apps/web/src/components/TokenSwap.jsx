@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import FeeDisplay from '@/components/FeeDisplay.jsx';
+import { getBloxologyTokensForChain } from '@/lib/bloxologyTokenList.js';
 import { getTransactionUrl } from '@/utils/etherscanLinks.js';
 import { calculateSwapFee, FEE_RECIPIENT, FEE_CONFIG } from '@/utils/feeCalculator.js';
 import { useToast } from '@/hooks/use-toast';
@@ -23,30 +24,11 @@ const ERC20_ABI = [
   'function decimals() view returns (uint8)'
 ];
 
-const DEFAULT_TOKENS_BY_CHAIN = {
-  8453: [
-    { symbol: 'ETH', address: '0x4200000000000000000000000000000000000006' },
-    { symbol: 'USDC', address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
-    { symbol: 'DAI', address: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb' },
-    { symbol: 'USDT', address: '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2' }
-  ],
-  1: [
-    { symbol: 'ETH', address: '0xC02aaA39b223FE8D0A0E5C4F27eAD9083C756Cc2' },
-    { symbol: 'USDC', address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' },
-    { symbol: 'DAI', address: '0x6B175474E89094C44Da98b954EedeAC495271d0F' },
-    { symbol: 'USDT', address: '0xdAC17F958D2ee523a2206206994597C13D831ec7' }
-  ]
-};
-
-const getDefaultTokensForChain = (chainId) => {
-  return DEFAULT_TOKENS_BY_CHAIN[Number(chainId)] || DEFAULT_TOKENS_BY_CHAIN[8453];
-};
-
 const TokenSwap = () => {
   const { activeAddress } = useBaseAuth();
   const { selectedNetwork, customTokens, addCustomToken } = useNetwork();
   const { toast } = useToast();
-  const defaultTokens = getDefaultTokensForChain(selectedNetwork.id);
+  const defaultTokens = getBloxologyTokensForChain(selectedNetwork.id);
   const [fromToken, setFromToken] = useState(defaultTokens[0].address);
   const [toToken, setToToken] = useState(defaultTokens[1].address);
   const [amount, setAmount] = useState('');
