@@ -12,6 +12,61 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import FeeDisplay from '@/components/FeeDisplay.jsx';
 import { calculateLockerFee, FEE_RECIPIENT } from '@/utils/feeCalculator.js';
 
+const getReadableWalletError = (err, networkName) => {
+  if (!err) return 'Lock failed';
+
+  if (err.code === 4001) {
+    return 'Transaction was rejected in your wallet.';
+  }
+
+  const message =
+    err?.reason
+    || err?.data?.message
+    || err?.message
+    || 'Lock failed';
+
+  if (String(message).includes("Failed to execute 'json' on 'Response': Unexpected end of JSON input")) {
+    return `Wallet RPC returned an invalid response. Switch wallet to ${networkName} and try again.`;
+  }
+
+  return String(message);
+};
+
+const ensureWalletOnNetwork = async (selectedNetwork) => {
+  if (!window.ethereum) return;
+
+  const desiredHex = `0x${Number(selectedNetwork.id).toString(16)}`;
+  const currentHex = await window.ethereum.request({ method: 'eth_chainId' });
+
+  if (currentHex?.toLowerCase() === desiredHex.toLowerCase()) return;
+
+  try {
+    await window.ethereum.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: desiredHex }],
+    });
+  } catch (switchErr) {
+    if (switchErr?.code === 4902) {
+      await window.ethereum.request({
+        method: 'wallet_addEthereumChain',
+        params: [{
+          chainId: desiredHex,
+          chainName: selectedNetwork.name,
+          rpcUrls: [selectedNetwork.rpcUrl],
+          nativeCurrency: {
+            name: selectedNetwork.currencySymbol,
+            symbol: selectedNetwork.currencySymbol,
+            decimals: 18,
+          },
+          blockExplorerUrls: selectedNetwork.blockExplorer ? [selectedNetwork.blockExplorer] : [],
+        }],
+      });
+    } else {
+      throw switchErr;
+    }
+  }
+};
+
 const TokenLocker = () => {
   const { activeAddress } = useBaseAuth();
   const { selectedNetwork } = useNetwork();
@@ -118,6 +173,8 @@ const TokenLocker = () => {
 
       const { transaction, lockDetails } = data.data;
 
+      await ensureWalletOnNetwork(selectedNetwork);
+
       // 2. Submit the ERC-20 transfer via the user's wallet
       const txHash = await window.ethereum.request({
         method: 'eth_sendTransaction',
@@ -145,7 +202,7 @@ const TokenLocker = () => {
       });
       setAmount('');
     } catch (err) {
-      setError(err.message || 'Lock failed');
+      setError(getReadableWalletError(err, selectedNetwork.name));
     } finally {
       setLoading(false);
       setOperation(null);

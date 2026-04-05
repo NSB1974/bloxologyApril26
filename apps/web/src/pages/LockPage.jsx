@@ -31,6 +31,61 @@ const DURATIONS = [
   { days: 180, apy: '15%' }
 ];
 
+const getReadableWalletError = (err, networkName) => {
+  if (!err) return 'Transaction failed';
+
+  if (err.code === 4001) {
+    return 'Transaction was rejected in your wallet.';
+  }
+
+  const message =
+    err?.reason
+    || err?.data?.message
+    || err?.message
+    || 'Transaction failed';
+
+  if (String(message).includes("Failed to execute 'json' on 'Response': Unexpected end of JSON input")) {
+    return `Wallet RPC returned an invalid response. Switch wallet to ${networkName} and try again.`;
+  }
+
+  return String(message);
+};
+
+const ensureWalletOnNetwork = async (selectedNetwork) => {
+  if (!window.ethereum) return;
+
+  const desiredHex = `0x${Number(selectedNetwork.id).toString(16)}`;
+  const currentHex = await window.ethereum.request({ method: 'eth_chainId' });
+
+  if (currentHex?.toLowerCase() === desiredHex.toLowerCase()) return;
+
+  try {
+    await window.ethereum.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: desiredHex }],
+    });
+  } catch (switchErr) {
+    if (switchErr?.code === 4902) {
+      await window.ethereum.request({
+        method: 'wallet_addEthereumChain',
+        params: [{
+          chainId: desiredHex,
+          chainName: selectedNetwork.name,
+          rpcUrls: [selectedNetwork.rpcUrl],
+          nativeCurrency: {
+            name: selectedNetwork.currencySymbol,
+            symbol: selectedNetwork.currencySymbol,
+            decimals: 18,
+          },
+          blockExplorerUrls: selectedNetwork.blockExplorer ? [selectedNetwork.blockExplorer] : [],
+        }],
+      });
+    } else {
+      throw switchErr;
+    }
+  }
+};
+
 const LockPage = () => {
   const { wallet, isConnected } = useWallet();
   const { selectedNetwork, customTokens } = useNetwork();
@@ -105,6 +160,8 @@ const LockPage = () => {
 
       const { transaction, lockDetails } = data.data;
 
+      await ensureWalletOnNetwork(selectedNetwork);
+
       const txHashResult = await window.ethereum.request({
         method: 'eth_sendTransaction',
         params: [{
@@ -138,9 +195,10 @@ const LockPage = () => {
       setAmount('');
 
     } catch (err) {
+      const readableError = getReadableWalletError(err, selectedNetwork.name);
       setTxStatus('error');
-      setTxError(err.message);
-      toast.error(err.message);
+      setTxError(readableError);
+      toast.error(readableError);
     }
   };
 
