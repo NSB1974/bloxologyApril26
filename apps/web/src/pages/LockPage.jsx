@@ -44,7 +44,23 @@ const getReadableWalletError = (err, networkName) => {
     || err?.message
     || 'Transaction failed';
 
-  if (String(message).includes("Failed to execute 'json' on 'Response': Unexpected end of JSON input")) {
+  const flattened = [
+    message,
+    err?.shortMessage,
+    err?.error?.message,
+    err?.cause?.message,
+    err?.data?.originalError?.message,
+    typeof err === 'string' ? err : '',
+    (() => {
+      try {
+        return JSON.stringify(err);
+      } catch (_) {
+        return '';
+      }
+    })(),
+  ].filter(Boolean).join(' | ');
+
+  if (flattened.includes("Failed to execute 'json' on 'Response': Unexpected end of JSON input")) {
     return `Wallet RPC returned an invalid response. Switch wallet to ${networkName} and try again.`;
   }
 
