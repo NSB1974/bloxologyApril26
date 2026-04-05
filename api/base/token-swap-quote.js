@@ -1,7 +1,7 @@
 const { formatUnits, getUsdPrice, getErc20Balance, CHAIN_ID_TO_COINGECKO_PLATFORM, isAddress, json } = require('./_helpers');
 
 const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY;
-const ZEROX_API_KEY = process.env.ZEROX_API_KEY;
+const ODOS_API_KEY = process.env.ODOS_API_KEY;
 const FEE_RECIPIENT = '0x5ab137b17c3584a9DeBBa742964F09F84a4A5A7C';
 const SWAP_FEE_BPS = 40;
 const NATIVE_TOKEN_ALIAS = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
@@ -134,9 +134,9 @@ const requestAlchemyQuote = async (quoteParams) => {
   return payload.result;
 };
 
-const fetchZeroXQuote = async ({ fromAddress, fromToken, toToken, amount, chainId }) => {
-  if (!ZEROX_API_KEY || String(ZEROX_API_KEY).includes('YOUR_ZEROX_API_KEY')) {
-    throw new Error('0x fallback unavailable: ZEROX_API_KEY is not configured');
+const fetchOdosQuote = async ({ fromAddress, fromToken, toToken, amount, chainId }) => {
+  if (!ODOS_API_KEY || String(ODOS_API_KEY).includes('YOUR_ODOS_API_KEY')) {
+    throw new Error('Odos fallback unavailable: ODOS_API_KEY is not configured');
   }
 
   const fromTokenLower = fromToken.toLowerCase();
@@ -145,35 +145,69 @@ const fetchZeroXQuote = async ({ fromAddress, fromToken, toToken, amount, chainI
   const toDecimals = TOKEN_DECIMALS[toTokenLower] ?? 18;
   const sellAmountRaw = toAmountRaw(amount, fromDecimals).toString();
 
-  const endpoint = new URL('https://api.0x.org/swap/permit2/quote');
-  endpoint.searchParams.set('chainId', String(Number(chainId)));
-  endpoint.searchParams.set('sellToken', fromToken);
-  endpoint.searchParams.set('buyToken', toToken);
-  endpoint.searchParams.set('sellAmount', sellAmountRaw);
-  endpoint.searchParams.set('taker', fromAddress);
-
-  const response = await fetch(endpoint.toString(), {
-    method: 'GET',
+  const quoteResponse = await fetch('https://api.odos.xyz/sor/quote/v2', {
+    method: 'POST',
     headers: {
-      Accept: 'application/json',
-      '0x-version': 'v2',
-      '0x-api-key': ZEROX_API_KEY,
+      'Content-Type': 'application/json',
+      'x-api-key': ODOS_API_KEY,
     },
+    body: JSON.stringify({
+      chainId: Number(chainId),
+      userAddr: fromAddress,
+      inputTokens: [
+        {
+          tokenAddress: fromToken,
+          amount: sellAmountRaw,
+        },
+      ],
+      outputTokens: [
+        {
+          tokenAddress: toToken,
+          proportion: 1,
+        },
+      ],
+      slippageLimitPercent: 1,
+      disableRFQs: true,
+      compact: true,
+    }),
   });
 
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(payload?.reason || payload?.message || `0x quote request failed: ${response.status}`);
+  const quotePayload = await quoteResponse.json().catch(() => ({}));
+  if (!quoteResponse.ok) {
+    throw new Error(quotePayload?.message || `Odos quote request failed: ${quoteResponse.status}`);
   }
 
-  const buyAmountRaw = parseRawAmount(payload?.buyAmount);
+  const pathId = quotePayload?.pathId;
+  if (!pathId) {
+    throw new Error('Odos quote did not return pathId');
+  }
+
+  const assembleResponse = await fetch('https://api.odos.xyz/sor/assemble', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': ODOS_API_KEY,
+    },
+    body: JSON.stringify({
+      userAddr: fromAddress,
+      pathId,
+      simulate: false,
+    }),
+  });
+
+  const assemblePayload = await assembleResponse.json().catch(() => ({}));
+  if (!assembleResponse.ok) {
+    throw new Error(assemblePayload?.message || `Odos assemble request failed: ${assembleResponse.status}`);
+  }
+
+  const tx = assemblePayload?.transaction;
+  if (!tx || !tx.to || !tx.data) {
+    throw new Error('Odos assemble did not return executable transaction data');
+  }
+
+  const buyAmountRaw = parseRawAmount(quotePayload?.outAmounts?.[0]);
   const outputAmount = buyAmountRaw != null ? formatUnits(buyAmountRaw, toDecimals, 9) : '0';
   const exchangeRate = Number(amount) > 0 && Number(outputAmount) > 0 ? Number(outputAmount) / Number(amount) : 0;
-
-  const tx = payload?.transaction;
-  if (!tx || !tx.to || !tx.data) {
-    throw new Error('0x quote did not return executable transaction data');
-  }
 
   return {
     outputAmount,
@@ -187,10 +221,10 @@ const fetchZeroXQuote = async ({ fromAddress, fromToken, toToken, amount, chainI
     toUsd: null,
     estimatedGasUsd: null,
     pricing: {
-      fromTokenSource: '0x-quote',
-      toTokenSource: '0x-quote',
+      fromTokenSource: 'odos-quote',
+      toTokenSource: 'odos-quote',
     },
-    provider: '0x',
+    provider: 'odos',
     execution: {
       type: 'transaction',
       transaction: {
@@ -201,7 +235,10 @@ const fetchZeroXQuote = async ({ fromAddress, fromToken, toToken, amount, chainI
         gasPrice: tx.gasPrice,
       },
     },
-    rawQuote: payload,
+    rawQuote: {
+      quote: quotePayload,
+      assemble: assemblePayload,
+    },
   };
 };
 
@@ -441,27 +478,27 @@ module.exports = async function handler(req, res) {
           }
         }
 
-        // Fallback to 0x quote provider when Alchemy cannot route.
+        // Fallback to Odos quote provider when Alchemy cannot route.
         if (routeError) {
           try {
-            const zeroXQuote = await fetchZeroXQuote({ fromAddress, fromToken, toToken, amount, chainId });
-            if (zeroXQuote) {
+            const odosQuote = await fetchOdosQuote({ fromAddress, fromToken, toToken, amount, chainId });
+            if (odosQuote) {
               return json(res, 200, {
                 success: true,
-                data: zeroXQuote,
+                data: odosQuote,
                 error: null,
               });
             }
-          } catch (zeroXError) {
-            fallbackDetail = String(zeroXError?.message || zeroXError);
-            console.error('[token-swap-quote] 0x fallback failed', {
+          } catch (odosError) {
+            fallbackDetail = String(odosError?.message || odosError);
+            console.error('[token-swap-quote] odos fallback failed', {
               requestId,
               chainId: Number(chainId),
               fromAddress,
               fromToken,
               toToken,
               amount,
-              error: String(zeroXError?.message || zeroXError),
+              error: String(odosError?.message || odosError),
             });
           }
         }
