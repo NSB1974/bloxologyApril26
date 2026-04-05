@@ -1,6 +1,6 @@
 const { getTokenMeta, formatUnits, isAddress, json } = require('./_helpers');
 
-const FEE_RECIPIENT = '0x5ab137b17c3584a9DeBBa742964F09F84a4A5A7C';
+const FEE_RECIPIENT = '0xA7a6bd20FB57c43223084ad8525E24743e52C8ec';
 // Platform lock escrow address — tokens are held here until unlock time
 const LOCK_ESCROW = FEE_RECIPIENT;
 
