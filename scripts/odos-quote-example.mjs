@@ -1,23 +1,27 @@
-const quoteUrl = 'https://enterprise-api.odos.xyz/sor/quote/v3';
+const quoteUrl = 'https://api.odos.xyz/sor/quote/v2';
+
+const userAddr = process.env.ODOS_USER_ADDR || '0x000000000000000000000000000000000000dEaD';
+const inputTokenAddress = process.env.ODOS_INPUT_TOKEN || '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'; // USDC on Base
+const outputTokenAddress = process.env.ODOS_OUTPUT_TOKEN || '0x4200000000000000000000000000000000000006'; // WETH on Base
+const inputAmount = process.env.ODOS_INPUT_AMOUNT || '10000000'; // 10 USDC (6 decimals)
 
 const quoteRequestBody = {
   chainId: 8453,
+  userAddr,
   inputTokens: [
     {
-      tokenAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-      amount: '10000000'
+      tokenAddress: inputTokenAddress,
+      amount: inputAmount
     }
   ],
   outputTokens: [
     {
-      tokenAddress: '0xca73ed1815e5915489570014e024b7EbE65dE679',
+      tokenAddress: outputTokenAddress,
       proportion: 1
     }
   ],
-  userAddr: '0x...',
-  slippageLimitPercent: 0.3,
-  partnerFeePercent: 0.001,  // 0.1% fee
-  feeRecipient: '0x...',  // Your recipient address
+  slippageLimitPercent: 1,
+  disableRFQs: true,
   compact: true
 };
 
