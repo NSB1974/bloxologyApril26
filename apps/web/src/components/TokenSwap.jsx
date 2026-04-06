@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import FeeDisplay from '@/components/FeeDisplay.jsx';
 import { getBloxologyTokensForChain } from '@/lib/bloxologyTokenList.js';
 import { getTransactionUrl } from '@/utils/etherscanLinks.js';
-import { calculateSwapFee, FEE_RECIPIENT, FEE_CONFIG } from '@/utils/feeCalculator.js';
+import { FEE_RECIPIENT } from '@/utils/feeCalculator.js';
 import { useToast } from '@/hooks/use-toast';
 
 const ERC20_ABI = [
@@ -319,8 +319,8 @@ const TokenSwap = () => {
         throw new Error('Wallet did not return a transaction hash.');
       }
 
-      const feeAmount = Number(quote.feeAmount ?? calculateSwapFee(quote.outputAmount));
-      const netOutput = Number(quote.netOutputAmount ?? (parseFloat(quote.outputAmount) - feeAmount));
+      const feeAmount = 0;
+      const netOutput = Number(quote.outputAmount ?? 0);
 
       setIsSwapping(false);
       setResult({
