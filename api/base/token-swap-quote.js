@@ -435,6 +435,7 @@ module.exports = async function handler(req, res) {
             return json(res, 400, {
               success: false,
               data: null,
+              errorCode: 'INSUFFICIENT_BALANCE',
               error: `Insufficient ${fromBalance.symbol || 'token'} balance. Available ${fromBalance.balance}, requested ${amount}.`,
             });
           }
@@ -474,6 +475,7 @@ module.exports = async function handler(req, res) {
       return json(res, 422, {
         success: false,
         data: null,
+        errorCode: 'EXECUTION_UNAVAILABLE',
         error: `No executable route for this token pair and amount right now. Try a different amount or token pair. Ref: ${requestId}`,
       });
     }
@@ -493,6 +495,7 @@ module.exports = async function handler(req, res) {
       return json(res, 400, {
         success: false,
         data: null,
+        errorCode: 'PRICING_UNAVAILABLE',
         error: `No pricing data available for this token pair on ${platform}. Try a different pair or connect a wallet for a live quote.`,
       });
     }
