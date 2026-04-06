@@ -48,14 +48,8 @@ process.on('SIGTERM', async () => {
 });
 
 app.use(helmet({
-  contentSecurityPolicy: process.env.NODE_ENV === 'production'
-    ? undefined  // use Helmet defaults in production
-    : {
-        directives: {
-          ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-          "script-src": ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-        },
-      },
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
 }));
 app.use(cors({
 	origin: process.env.CORS_ORIGIN,
