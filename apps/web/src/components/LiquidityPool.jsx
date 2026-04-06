@@ -60,9 +60,11 @@ const LiquidityPool = () => {
   };
 
   const formatNumber = (val) => {
+    const n = Number(val);
+    const fracs = Math.abs(n) < 0.01 ? 9 : Math.abs(n) < 1 ? 6 : 4;
     return new Intl.NumberFormat('en-US', {
-      maximumFractionDigits: 4
-    }).format(val);
+      maximumFractionDigits: fracs
+    }).format(n);
   };
 
   const calculateEstimatedSlippage = () => {
@@ -202,7 +204,7 @@ const LiquidityPool = () => {
               <div className="flex justify-between items-center p-3 glass-card rounded-lg">
                 <span className="text-[var(--text-secondary)] font-medium">Ratio (T0/T1)</span>
                 <span className="font-bold text-[var(--text-primary)]">
-                  {(parseFloat(poolData.reserve0) / parseFloat(poolData.reserve1)).toFixed(4)}
+                  {(parseFloat(poolData.reserve0) / parseFloat(poolData.reserve1)).toLocaleString(undefined, { maximumFractionDigits: 9 })}
                 </span>
               </div>
               <div className="flex justify-between items-center p-3 glass-card rounded-lg">

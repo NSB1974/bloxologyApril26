@@ -282,7 +282,7 @@ const LockPage = () => {
     if (!selectedDuration) return '0.00';
     const apyNum = parseFloat(selectedDuration.apy);
     // Simple mock calculation for UI
-    return ((parseFloat(amount) * apyNum) / 100).toFixed(4);
+    return ((parseFloat(amount) * apyNum) / 100).toLocaleString(undefined, { maximumFractionDigits: 9 });
   };
 
   return (

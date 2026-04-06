@@ -69,10 +69,14 @@ const ConnectedWalletDashboard = () => {
   };
 
   const formatCurrency = (val) => {
+    const n = Number(val);
+    const fracs = Math.abs(n) < 0.01 ? 9 : Math.abs(n) < 1 ? 6 : 2;
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD'
-    }).format(val);
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: fracs
+    }).format(n);
   };
 
   const getPriceBadge = (token) => {
@@ -282,7 +286,7 @@ const ConnectedWalletDashboard = () => {
                             </div>
                             <div>
                               <p className="font-bold text-[var(--text-primary)]">{token.token}</p>
-                              <p className="text-xs text-[var(--text-secondary)] font-medium">{parseFloat(token.balance).toFixed(4)}</p>
+                              <p className="text-xs text-[var(--text-secondary)] font-medium">{parseFloat(token.balance).toLocaleString(undefined, { maximumFractionDigits: 9 })}</p>
                               <TooltipProvider delayDuration={120}>
                                 <Tooltip>
                                   <TooltipTrigger asChild>

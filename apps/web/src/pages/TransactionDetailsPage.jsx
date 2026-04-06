@@ -68,7 +68,9 @@ const TransactionDetailsPage = () => {
 
   const formatAmount = (valueEth) => {
     if (!valueEth || valueEth === '0') return '0';
-    return parseFloat(valueEth).toLocaleString(undefined, { maximumFractionDigits: 6 });
+    const num = parseFloat(valueEth);
+    const fracs = Math.abs(num) < 0.01 ? 9 : 6;
+    return num.toLocaleString(undefined, { maximumFractionDigits: fracs });
   };
 
   return (
