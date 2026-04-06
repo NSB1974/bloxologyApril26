@@ -134,7 +134,11 @@ const TokenSwap = () => {
           })
         });
 
-        quoteResult = await response.json();
+        try {
+          quoteResult = await response.json();
+        } catch (_) {
+          throw new Error('Quote service returned an invalid response. Please try again.');
+        }
 
         if (!response.ok || !quoteResult.success) {
           const providerUnavailable = response.status === 503;
@@ -351,6 +355,7 @@ const TokenSwap = () => {
     && Number.isFinite(parsedAmount)
     && parsedAmount > 0
     && parsedAmount > parsedBalance;
+  const hasNoExecutableRoute = Boolean(!loadingQuote && !error && quote && !quote.execution);
 
   const copyDebugReport = async () => {
     const payload = {
@@ -643,9 +648,11 @@ const TokenSwap = () => {
                 'Enter an amount'
               ) : hasInsufficientBalance ? (
                 'Insufficient balance'
+              ) : error ? (
+                'Quote unavailable'
               ) : loadingQuote ? (
                 'Getting quote...'
-              ) : !quote?.execution ? (
+              ) : hasNoExecutableRoute ? (
                 'No executable route'
               ) : (
                 'Swap'
