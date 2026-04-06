@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowDownUp, Loader2, CheckCircle, AlertCircle, Settings, Info } from 'lucide-react';
 import { ethers } from 'ethers';
-import { useNavigate } from 'react-router-dom';
 import apiServerClient from '@/lib/apiServerClient.js';
 import { useBaseAuth, useNetwork } from '@/contexts/BaseAuthContext.jsx';
 import { Button } from '@/components/ui/button';
@@ -12,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import FeeDisplay from '@/components/FeeDisplay.jsx';
 import { getBloxologyTokensForChain } from '@/lib/bloxologyTokenList.js';
@@ -39,7 +39,6 @@ const isValidTokenEntry = (token) => {
 };
 
 const TokenSwap = () => {
-  const navigate = useNavigate();
   const { activeAddress } = useBaseAuth();
   const { selectedNetwork, customTokens, addCustomToken } = useNetwork();
   const { toast } = useToast();
@@ -66,6 +65,12 @@ const TokenSwap = () => {
   const [fromTokenBalance, setFromTokenBalance] = useState(null);
   const [loadingBalance, setLoadingBalance] = useState(false);
   const [balanceUnavailable, setBalanceUnavailable] = useState(false);
+  const [slippage, setSlippage] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('bloxology_settings'));
+      return saved?.slippageTolerance || '0.5';
+    } catch { return '0.5'; }
+  });
 
   // Combine default tokens with custom tokens for current network
   const customTokensForNetwork = customTokens.filter(
@@ -445,15 +450,67 @@ const TokenSwap = () => {
       <Card className="glass-card-strong border-border/50 shadow-2xl">
         <CardHeader className="flex flex-row items-center justify-between pb-4">
           <CardTitle className="text-xl text-[var(--text-primary)]">Swap on {selectedNetwork.name}</CardTitle>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/settings')}
-            className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-          >
-            <Settings className="h-5 w-5" />
-          </Button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              >
+                <Settings className="h-5 w-5" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-64 glass-card-strong p-4 space-y-3">
+              <p className="text-sm font-semibold text-[var(--text-primary)]">Slippage Tolerance</p>
+              <div className="flex gap-2">
+                {['0.1', '0.5', '1.0'].map((val) => (
+                  <Button
+                    key={val}
+                    type="button"
+                    variant={slippage === val ? 'default' : 'outline'}
+                    size="sm"
+                    className="flex-1 text-xs"
+                    onClick={() => {
+                      setSlippage(val);
+                      try {
+                        const prev = JSON.parse(localStorage.getItem('bloxology_settings') || '{}');
+                        localStorage.setItem('bloxology_settings', JSON.stringify({ ...prev, slippageTolerance: val }));
+                      } catch {}
+                    }}
+                  >
+                    {val}%
+                  </Button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min="0"
+                  max="50"
+                  step="0.1"
+                  value={slippage}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === '' || (!isNaN(v) && parseFloat(v) >= 0 && parseFloat(v) <= 50)) {
+                      setSlippage(v);
+                    }
+                  }}
+                  onBlur={() => {
+                    try {
+                      const prev = JSON.parse(localStorage.getItem('bloxology_settings') || '{}');
+                      localStorage.setItem('bloxology_settings', JSON.stringify({ ...prev, slippageTolerance: slippage || '0.5' }));
+                    } catch {}
+                  }}
+                  className="h-8 text-sm"
+                />
+                <span className="text-sm text-[var(--text-secondary)] font-medium">%</span>
+              </div>
+              {parseFloat(slippage) > 5 && (
+                <p className="text-xs text-destructive font-medium">High slippage — you may lose value on this trade.</p>
+              )}
+            </PopoverContent>
+          </Popover>
         </CardHeader>
         <CardContent>
           <form onSubmit={executeSwap} className="space-y-2">
