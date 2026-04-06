@@ -96,6 +96,14 @@ export const DEFAULT_NETWORKS = {
 };
 
 const BaseAuthContext = createContext(null);
+const ADDRESS_REGEX = /^0x[a-fA-F0-9]{40}$/;
+
+const isValidAddress = (value) => typeof value === 'string' && ADDRESS_REGEX.test(value);
+
+const makeMockAddress = (seed = 1) => {
+  const hex = seed.toString(16).padStart(40, '0').slice(-40);
+  return `0x${hex}`;
+};
 
 export const useBaseAuth = () => {
   const context = useContext(BaseAuthContext);
@@ -298,7 +306,15 @@ export const BaseAuthProvider = ({ children }) => {
   const fetchAvailableAddresses = useCallback(async (accounts, currentActive) => {
     setAddressSwitchLoading(true);
     try {
-      const formattedAccounts = await Promise.all(accounts.map(async (addr, index) => {
+      const safeAccounts = (Array.isArray(accounts) ? accounts : []).filter((addr) => {
+        if (isValidAddress(addr)) return true;
+        if (addr) {
+          console.warn(`[BaseAuthContext] Skipping invalid account address: ${addr}`);
+        }
+        return false;
+      });
+
+      const formattedAccounts = await Promise.all(safeAccounts.map(async (addr, index) => {
         const balance = await getAddressBalance(addr);
         return {
           address: addr,
@@ -315,7 +331,12 @@ export const BaseAuthProvider = ({ children }) => {
   }, [selectedNetwork.id]);
 
   const switchAddress = useCallback((newAddress) => {
-    if (!newAddress) return;
+    if (!newAddress || !isValidAddress(newAddress)) {
+      if (newAddress) {
+        console.warn(`[BaseAuthContext] Refusing to switch to invalid address: ${newAddress}`);
+      }
+      return;
+    }
     console.log('[BaseAuthContext] Switching active address to:', newAddress);
     setAddressSwitchLoading(true);
     
@@ -335,13 +356,15 @@ export const BaseAuthProvider = ({ children }) => {
 
   const handleAccountsChanged = useCallback(async (accounts) => {
     console.log('[BaseAuthContext] Accounts changed:', accounts);
-    if (accounts.length === 0) {
+    const validAccounts = (Array.isArray(accounts) ? accounts : []).filter(isValidAddress);
+
+    if (validAccounts.length === 0) {
       disconnect();
     } else {
       const savedActiveAddress = sessionStorage.getItem('base_active_address');
-      const targetActive = accounts.find(a => a.toLowerCase() === (savedActiveAddress || '').toLowerCase()) || accounts[0];
+      const targetActive = validAccounts.find(a => a.toLowerCase() === (savedActiveAddress || '').toLowerCase()) || validAccounts[0];
       
-      await fetchAvailableAddresses(accounts, targetActive);
+      await fetchAvailableAddresses(validAccounts, targetActive);
       
       if (activeAddress !== targetActive.toLowerCase()) {
         switchAddress(targetActive);
@@ -371,9 +394,11 @@ export const BaseAuthProvider = ({ children }) => {
       } else if (savedSession) {
         setIsConnected(true);
         setWalletType('mock');
-        const mockAccounts = [savedSession, '0x' + Math.random().toString(16).slice(2, 42)];
-        await fetchAvailableAddresses(mockAccounts, savedActiveAddress || savedSession);
-        setActiveAddressState(savedActiveAddress || savedSession);
+        const fallbackSession = isValidAddress(savedSession) ? savedSession : makeMockAddress(1);
+        const fallbackActive = isValidAddress(savedActiveAddress) ? savedActiveAddress : fallbackSession;
+        const mockAccounts = [fallbackSession, makeMockAddress(2)];
+        await fetchAvailableAddresses(mockAccounts, fallbackActive);
+        setActiveAddressState(fallbackActive.toLowerCase());
       }
     };
 
