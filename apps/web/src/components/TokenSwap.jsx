@@ -268,6 +268,20 @@ const TokenSwap = () => {
         throw new Error('Live execution data unavailable for this quote. Try another token pair or reconnect wallet.');
       }
 
+      // Pre-flight: check ETH balance covers gas (0.00005 ETH minimum on Base)
+      try {
+        const MIN_GAS_WEI = BigInt('50000000000000'); // 0.00005 ETH
+        const balHex = await window.ethereum.request({ method: 'eth_getBalance', params: [activeAddress, 'latest'] });
+        const balWei = BigInt(balHex);
+        if (balWei < MIN_GAS_WEI) {
+          const balEth = (Number(balWei) / 1e18).toFixed(6);
+          throw new Error(`Insufficient ETH for gas fees. You have ${balEth} ETH on ${selectedNetwork.name} but need at least 0.00005 ETH to send this transaction.`);
+        }
+      } catch (gasCheckErr) {
+        if (gasCheckErr.message?.startsWith('Insufficient ETH')) throw gasCheckErr;
+        // eth_getBalance unavailable — skip check and proceed
+      }
+
       let txHash = null;
 
       if (quote.execution.type === 'transaction' && quote.execution.transaction) {
@@ -629,6 +643,8 @@ const TokenSwap = () => {
                 'Enter an amount'
               ) : hasInsufficientBalance ? (
                 'Insufficient balance'
+              ) : loadingQuote ? (
+                'Getting quote...'
               ) : !quote?.execution ? (
                 'No executable route'
               ) : (
