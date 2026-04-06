@@ -26,6 +26,7 @@ const normaliseWalletError = (err, networkName) => {
   addCandidate(err?.message);
   addCandidate(err?.reason);
   addCandidate(err?.shortMessage);
+  addCandidate(typeof err?.toString === 'function' ? err.toString() : null);
   addCandidate(err?.data?.message);
   addCandidate(err?.error?.message);
   addCandidate(err?.cause?.message);
@@ -210,15 +211,20 @@ const TokenLocker = () => {
       }
 
       // 2. Submit the ERC-20 transfer via the user's wallet
-      const txHash = await window.ethereum.request({
-        method: 'eth_sendTransaction',
-        params: [{
-          from: activeAddress,
-          to: transaction.to,
-          data: transaction.data,
-          value: transaction.value,
-        }],
-      });
+      let txHash;
+      try {
+        txHash = await window.ethereum.request({
+          method: 'eth_sendTransaction',
+          params: [{
+            from: activeAddress,
+            to: transaction.to,
+            data: transaction.data,
+            value: transaction.value,
+          }],
+        });
+      } catch (walletErr) {
+        throw new Error(normaliseWalletError(walletErr, selectedNetwork.name));
+      }
 
       if (!txHash) {
         throw new Error('Wallet did not return a transaction hash.');
