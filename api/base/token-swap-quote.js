@@ -1,4 +1,4 @@
-const { formatUnits, getUsdPrice, getErc20Balance, CHAIN_ID_TO_COINGECKO_PLATFORM, isAddress, json } = require('./_helpers');
+const { formatUnits, getUsdPrice, getErc20Balance, CHAIN_ID_TO_COINGECKO_PLATFORM, isAddress, json, cors } = require('./_helpers');
 
 const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY;
 const UNISWAP_API_KEY = process.env.UNISWAP_API_KEY;
@@ -383,6 +383,7 @@ const fetchAlchemyQuote = async ({ fromAddress, fromToken, toToken, amount, chai
 };
 
 module.exports = async function handler(req, res) {
+  if (cors(req, res)) return;
   const requestId = `swapq_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
   if (req.method !== 'POST') {

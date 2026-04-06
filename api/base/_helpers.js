@@ -83,6 +83,20 @@ const json = (res, status, payload) => {
   res.end(JSON.stringify(payload));
 };
 
+/** Set CORS headers and handle OPTIONS preflight. Returns true if the request was a preflight. */
+const cors = (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  res.setHeader('Access-Control-Max-Age', '86400');
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 204;
+    res.end();
+    return true;
+  }
+  return false;
+};
+
 const isAddress = (value) => /^0x[a-fA-F0-9]{40}$/.test(value || '');
 
 const nowMs = () => Date.now();
@@ -274,4 +288,5 @@ module.exports = {
   getUsdPrice,
   isAddress,
   json,
+  cors,
 };

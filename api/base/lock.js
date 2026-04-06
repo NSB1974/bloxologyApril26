@@ -1,4 +1,4 @@
-const { getTokenMeta, formatUnits, isAddress, json } = require('./_helpers');
+const { getTokenMeta, formatUnits, isAddress, json, cors } = require('./_helpers');
 
 const FEE_RECIPIENT = '0xA7a6bd20FB57c43223084ad8525E24743e52C8ec';
 // Platform lock escrow address — tokens are held here until unlock time
@@ -18,6 +18,7 @@ const toAmountRaw = (amountDecimal, decimals) => {
 };
 
 module.exports = async function handler(req, res) {
+  if (cors(req, res)) return;
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return json(res, 405, { success: false, data: null, error: 'Method not allowed' });

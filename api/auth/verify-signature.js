@@ -1,7 +1,9 @@
 const { verifyMessage } = require('ethers');
 const jwt = require('jsonwebtoken');
+const { cors } = require('../base/_helpers');
 
 module.exports = async function handler(req, res) {
+  if (cors(req, res)) return;
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ success: false, error: 'Method not allowed' });

@@ -1,4 +1,4 @@
-const { getErc20Balance, getNativeBalance, getUsdPrice, isAddress, json } = require('./_helpers');
+const { getErc20Balance, getNativeBalance, getUsdPrice, isAddress, json, cors } = require('./_helpers');
 
 const TRACKED_TOKENS = [
   { symbol: 'ETH', address: '0x4200000000000000000000000000000000000006', native: true },
@@ -8,6 +8,7 @@ const TRACKED_TOKENS = [
 ];
 
 module.exports = async function handler(req, res) {
+  if (cors(req, res)) return;
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
     return json(res, 405, { success: false, data: null, error: 'Method not allowed' });
