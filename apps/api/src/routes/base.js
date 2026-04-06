@@ -43,15 +43,22 @@ router.get('/token-balance', async (req, res) => {
     });
   }
 
-  const data = await fetchTokenBalance(walletAddress, tokenAddress);
+  try {
+    const data = await fetchTokenBalance(walletAddress, tokenAddress);
 
-  logger.info(`Token balance fetched for ${walletAddress}`);
+    logger.info(`Token balance fetched for ${walletAddress}`);
 
-  res.json({
-    success: true,
-    data,
-    error: null,
-  });
+    res.json({
+      success: true,
+      data,
+      error: null,
+    });
+  } catch (err) {
+    logger.error('Token balance fetch error:', err);
+    if (!res.headersSent) {
+      return res.status(502).json({ success: false, data: null, error: err.message || 'Failed to fetch token balance' });
+    }
+  }
 });
 
 // GET /base/token-price - Fetch token price
@@ -76,15 +83,22 @@ router.get('/token-price', async (req, res) => {
     });
   }
 
-  const data = await fetchTokenPrice(tokenAddress);
+  try {
+    const data = await fetchTokenPrice(tokenAddress);
 
-  logger.info(`Token price fetched for ${tokenAddress}`);
+    logger.info(`Token price fetched for ${tokenAddress}`);
 
-  res.json({
-    success: true,
-    data,
-    error: null,
-  });
+    res.json({
+      success: true,
+      data,
+      error: null,
+    });
+  } catch (err) {
+    logger.error('Token price fetch error:', err);
+    if (!res.headersSent) {
+      return res.status(502).json({ success: false, data: null, error: err.message || 'Failed to fetch token price' });
+    }
+  }
 });
 
 // GET /base/token-metadata - Fetch token metadata
@@ -109,15 +123,22 @@ router.get('/token-metadata', async (req, res) => {
     });
   }
 
-  const data = await fetchTokenMetadata(tokenAddress);
+  try {
+    const data = await fetchTokenMetadata(tokenAddress);
 
-  logger.info(`Token metadata fetched for ${tokenAddress}`);
+    logger.info(`Token metadata fetched for ${tokenAddress}`);
 
-  res.json({
-    success: true,
-    data,
-    error: null,
-  });
+    res.json({
+      success: true,
+      data,
+      error: null,
+    });
+  } catch (err) {
+    logger.error('Token metadata fetch error:', err);
+    if (!res.headersSent) {
+      return res.status(502).json({ success: false, data: null, error: err.message || 'Failed to fetch token metadata' });
+    }
+  }
 });
 
 // GET /base/liquidity-pool - Fetch liquidity pool data
@@ -142,25 +163,46 @@ router.get('/liquidity-pool', async (req, res) => {
     });
   }
 
-  const data = await fetchLiquidityPoolData(poolAddress);
+  try {
+    const data = await fetchLiquidityPoolData(poolAddress);
 
-  logger.info(`Liquidity pool data fetched for ${poolAddress}`);
+    logger.info(`Liquidity pool data fetched for ${poolAddress}`);
 
-  res.json({
-    success: true,
-    data,
-    error: null,
-  });
+    res.json({
+      success: true,
+      data,
+      error: null,
+    });
+  } catch (err) {
+    logger.error('Liquidity pool fetch error:', err);
+    if (!res.headersSent) {
+      return res.status(502).json({ success: false, data: null, error: err.message || 'Failed to fetch liquidity pool data' });
+    }
+  }
 });
 
 // POST /base/token-swap-quote - Get token swap quote
 router.post('/token-swap-quote', async (req, res) => {
-  return liveTokenSwapQuoteHandler(req, res);
+  try {
+    return await liveTokenSwapQuoteHandler(req, res);
+  } catch (err) {
+    logger.error('Token swap quote handler error:', err);
+    if (!res.headersSent) {
+      return res.status(500).json({ success: false, data: null, error: err.message || 'Internal server error' });
+    }
+  }
 });
 
 // POST /base/lock - Build lock transaction payload
 router.post('/lock', async (req, res) => {
-  return liveLockHandler(req, res);
+  try {
+    return await liveLockHandler(req, res);
+  } catch (err) {
+    logger.error('Lock handler error:', err);
+    if (!res.headersSent) {
+      return res.status(500).json({ success: false, data: null, error: err.message || 'Internal server error' });
+    }
+  }
 });
 
 // GET /base/wallet-balances - Fetch balances for multiple tokens
