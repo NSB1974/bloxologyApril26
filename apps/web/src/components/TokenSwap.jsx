@@ -163,7 +163,12 @@ const TokenSwap = () => {
           );
         }
 
-        setQuote(quoteResult.data);
+        const quoteData = quoteResult?.data;
+        if (!quoteData?.execution) {
+          throw new Error('No executable route available for this amount right now. Try a different amount or token pair.');
+        }
+
+        setQuote(quoteData);
       } catch (err) {
         console.error('[TokenSwap] quote request exception', {
           chainId: selectedNetwork.id,
@@ -360,7 +365,6 @@ const TokenSwap = () => {
     && Number.isFinite(parsedAmount)
     && parsedAmount > 0
     && parsedAmount > parsedBalance;
-  const hasNoExecutableRoute = Boolean(!loadingQuote && !error && quote && !quote.execution);
 
   const copyDebugReport = async () => {
     const payload = {
@@ -652,8 +656,6 @@ const TokenSwap = () => {
                 'Quote unavailable'
               ) : loadingQuote ? (
                 'Getting quote...'
-              ) : hasNoExecutableRoute ? (
-                'No executable route'
               ) : (
                 'Swap'
               )}
