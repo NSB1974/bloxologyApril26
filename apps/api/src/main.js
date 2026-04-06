@@ -50,6 +50,8 @@ process.on('SIGTERM', async () => {
 app.use(helmet({
   contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: false,
+  crossOriginResourcePolicy: false,
 }));
 app.use(cors({
 	origin: process.env.CORS_ORIGIN,
