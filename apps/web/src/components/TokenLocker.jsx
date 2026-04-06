@@ -12,75 +12,71 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import FeeDisplay from '@/components/FeeDisplay.jsx';
 import { calculateLockerFee, FEE_RECIPIENT } from '@/utils/feeCalculator.js';
 
-const getReadableWalletError = (err, networkName) => {
+const normaliseWalletError = (err, networkName) => {
   if (!err) return 'Lock failed';
 
-  if (err.code === 4001) {
+  const code = err?.code ?? err?.error?.code;
+  if (code === 4001 || code === 'ACTION_REJECTED') {
     return 'Transaction was rejected in your wallet.';
   }
 
-  const message =
-    err?.reason
-    || err?.data?.message
-    || err?.message
-    || 'Lock failed';
+  const candidates = [];
+  const addCandidate = (v) => { if (v && typeof v === 'string') candidates.push(v); };
+  addCandidate(typeof err === 'string' ? err : null);
+  addCandidate(err?.message);
+  addCandidate(err?.reason);
+  addCandidate(err?.shortMessage);
+  addCandidate(err?.data?.message);
+  addCandidate(err?.error?.message);
+  addCandidate(err?.cause?.message);
+  addCandidate(err?.data?.originalError?.message);
+  try { addCandidate(JSON.stringify(err)); } catch (_) {}
 
-  const flattened = [
-    message,
-    err?.shortMessage,
-    err?.error?.message,
-    err?.cause?.message,
-    err?.data?.originalError?.message,
-    typeof err === 'string' ? err : '',
-    (() => {
-      try {
-        return JSON.stringify(err);
-      } catch (_) {
-        return '';
-      }
-    })(),
-  ].filter(Boolean).join(' | ');
+  const joined = candidates.join(' | ');
 
-  if (flattened.includes("Failed to execute 'json' on 'Response': Unexpected end of JSON input")) {
-    return `Wallet RPC returned an invalid response. Switch wallet to ${networkName} and try again.`;
+  if (
+    joined.includes("Failed to execute 'json' on 'Response'") ||
+    joined.includes('Unexpected end of JSON input') ||
+    joined.includes('JSON Parse error')
+  ) {
+    return `Your wallet\'s RPC returned an empty response. Make sure your wallet is switched to ${networkName} and try again.`;
   }
 
-  return String(message);
+  return candidates[0] || 'Lock failed';
 };
 
 const ensureWalletOnNetwork = async (selectedNetwork) => {
   if (!window.ethereum) return;
 
-  const desiredHex = `0x${Number(selectedNetwork.id).toString(16)}`;
-  const currentHex = await window.ethereum.request({ method: 'eth_chainId' });
-
-  if (currentHex?.toLowerCase() === desiredHex.toLowerCase()) return;
-
   try {
-    await window.ethereum.request({
-      method: 'wallet_switchEthereumChain',
-      params: [{ chainId: desiredHex }],
-    });
-  } catch (switchErr) {
-    if (switchErr?.code === 4902) {
+    const desiredHex = `0x${Number(selectedNetwork.id).toString(16)}`;
+    const currentHex = await window.ethereum.request({ method: 'eth_chainId' });
+    if (currentHex?.toLowerCase() === desiredHex.toLowerCase()) return;
+
+    try {
       await window.ethereum.request({
-        method: 'wallet_addEthereumChain',
-        params: [{
-          chainId: desiredHex,
-          chainName: selectedNetwork.name,
-          rpcUrls: [selectedNetwork.rpcUrl],
-          nativeCurrency: {
-            name: selectedNetwork.currencySymbol,
-            symbol: selectedNetwork.currencySymbol,
-            decimals: 18,
-          },
-          blockExplorerUrls: selectedNetwork.blockExplorer ? [selectedNetwork.blockExplorer] : [],
-        }],
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: desiredHex }],
       });
-    } else {
-      throw switchErr;
+    } catch (switchErr) {
+      if (switchErr?.code === 4902) {
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId: desiredHex,
+            chainName: selectedNetwork.name,
+            rpcUrls: [selectedNetwork.rpcUrl],
+            nativeCurrency: {
+              name: selectedNetwork.currencySymbol,
+              symbol: selectedNetwork.currencySymbol,
+              decimals: 18,
+            },
+            blockExplorerUrls: selectedNetwork.blockExplorer ? [selectedNetwork.blockExplorer] : [],
+          }],
+        });
+      }
     }
-  }
+  } catch (_) {}
 };
 
 const TokenLocker = () => {
@@ -218,7 +214,7 @@ const TokenLocker = () => {
       });
       setAmount('');
     } catch (err) {
-      setError(getReadableWalletError(err, selectedNetwork.name));
+      setError(normaliseWalletError(err, selectedNetwork.name));
     } finally {
       setLoading(false);
       setOperation(null);
