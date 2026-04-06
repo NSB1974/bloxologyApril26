@@ -129,9 +129,14 @@ const TokenLocker = () => {
 
       let data;
       try {
-        data = await response.json();
+        const text = await response.text();
+        data = text ? JSON.parse(text) : null;
       } catch (_) {
-        throw new Error('Server returned an invalid response.');
+        data = null;
+      }
+
+      if (!data) {
+        throw new Error('Server returned an empty or invalid response. Make sure the API server is running.');
       }
 
       if (!response.ok || !data.success) {

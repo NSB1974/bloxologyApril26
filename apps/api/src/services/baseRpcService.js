@@ -4,10 +4,10 @@ import NodeCache from 'node-cache';
 import logger from '../utils/logger.js';
 import { RPC_ENDPOINTS, CHAIN_ID_TO_RPC_KEY } from '../constants/common.js';
 
-const RPC_ENDPOINT = process.env.BASE_RPC_ENDPOINT;
+const RPC_ENDPOINT = process.env.BASE_RPC_ENDPOINT || RPC_ENDPOINTS.base;
 
 if (!RPC_ENDPOINT) {
-  throw new Error('BASE_RPC_ENDPOINT is not defined in environment variables');
+  logger.warn('BASE_RPC_ENDPOINT is not defined — using public fallback');
 }
 
 // Initialize cache with different TTLs
