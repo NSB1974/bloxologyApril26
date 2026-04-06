@@ -261,11 +261,9 @@ export const BaseAuthProvider = ({ children }) => {
   const getAddressBalance = async (addr) => {
     try {
       if (!addr || !/^0x[a-fA-F0-9]{40}$/i.test(addr)) {
-        console.warn(`[BaseAuthContext] Invalid address format for balance check: ${addr}`);
         return '0.0000';
       }
       if (!selectedNetwork || !selectedNetwork.id) {
-        console.warn(`[BaseAuthContext] Invalid network for balance check:`, selectedNetwork);
         return '0.0000';
       }
 
