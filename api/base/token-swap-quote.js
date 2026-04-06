@@ -416,8 +416,13 @@ module.exports = async function handler(req, res) {
     return json(res, 400, { success: false, data: null, error: 'Invalid fromAddress' });
   }
 
+  // Use dummy address for DEX quotes when no wallet is connected — allows preview quotes
+  // before wallet connection. Balance check is skipped for dummy address.
+  const DUMMY_ADDRESS = '0x000000000000000000000000000000000000dEaD';
+  const quoteAddress = fromAddress || DUMMY_ADDRESS;
+
   try {
-    if (fromAddress) {
+    if (quoteAddress) {
       if (!ALCHEMY_API_KEY || String(ALCHEMY_API_KEY).includes('YOUR_ALCHEMY_API_KEY')) {
         return json(res, 503, {
           success: false,
@@ -431,31 +436,34 @@ module.exports = async function handler(req, res) {
       const requestedAmountRaw = toAmountRaw(amount, fromDecimals);
       let availableBalanceRaw = null;
 
-      try {
-        const fromBalance = await getErc20Balance(fromAddress, fromToken, Number(chainId));
-        availableBalanceRaw = fromBalance.balanceRaw;
-        if (fromBalance.balanceRaw < requestedAmountRaw) {
-          return json(res, 400, {
-            success: false,
-            data: null,
-            error: `Insufficient ${fromBalance.symbol || 'token'} balance. Available ${fromBalance.balance}, requested ${amount}.`,
+      // Only check balance when a real wallet address is provided
+      if (fromAddress) {
+        try {
+          const fromBalance = await getErc20Balance(fromAddress, fromToken, Number(chainId));
+          availableBalanceRaw = fromBalance.balanceRaw;
+          if (fromBalance.balanceRaw < requestedAmountRaw) {
+            return json(res, 400, {
+              success: false,
+              data: null,
+              error: `Insufficient ${fromBalance.symbol || 'token'} balance. Available ${fromBalance.balance}, requested ${amount}.`,
+            });
+          }
+        } catch (balanceError) {
+          console.error('[token-swap-quote] balance precheck failed', {
+            requestId,
+            chainId: Number(chainId),
+            fromAddress,
+            fromToken,
+            toToken,
+            amount,
+            error: String(balanceError?.message || balanceError),
           });
+          // If balance pre-check fails, continue to quote request and return provider error.
         }
-      } catch (balanceError) {
-        console.error('[token-swap-quote] balance precheck failed', {
-          requestId,
-          chainId: Number(chainId),
-          fromAddress,
-          fromToken,
-          toToken,
-          amount,
-          error: String(balanceError?.message || balanceError),
-        });
-        // If balance pre-check fails, continue to quote request and return provider error.
       }
 
       try {
-        const alchemyQuote = await fetchAlchemyQuote({ fromAddress, fromToken, toToken, amount, chainId });
+        const alchemyQuote = await fetchAlchemyQuote({ fromAddress: quoteAddress, fromToken, toToken, amount, chainId });
         if (alchemyQuote) {
           return json(res, 200, {
             success: true,
