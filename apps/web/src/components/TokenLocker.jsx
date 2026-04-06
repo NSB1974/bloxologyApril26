@@ -42,6 +42,14 @@ const normaliseWalletError = (err, networkName) => {
     return `Your wallet\'s RPC returned an empty response. Make sure your wallet is switched to ${networkName} and try again.`;
   }
 
+  if (
+    joined.includes('insufficient funds') ||
+    joined.includes('insufficient eth') ||
+    joined.includes('gas required exceeds allowance')
+  ) {
+    return `Insufficient ETH for gas fees on ${networkName}. Please top up your ETH balance and try again.`;
+  }
+
   return candidates[0] || 'Lock failed';
 };
 
@@ -186,6 +194,20 @@ const TokenLocker = () => {
       const { transaction, lockDetails } = data.data;
 
       await ensureWalletOnNetwork(selectedNetwork);
+
+      // Pre-flight: check ETH balance covers gas (0.00005 ETH minimum on Base)
+      try {
+        const MIN_GAS_WEI = BigInt('50000000000000'); // 0.00005 ETH
+        const balHex = await window.ethereum.request({ method: 'eth_getBalance', params: [activeAddress, 'latest'] });
+        const balWei = BigInt(balHex);
+        if (balWei < MIN_GAS_WEI) {
+          const balEth = (Number(balWei) / 1e18).toFixed(6);
+          throw new Error(`Insufficient ETH for gas fees. You have ${balEth} ETH on ${selectedNetwork.name} but need at least 0.00005 ETH to send this transaction.`);
+        }
+      } catch (balErr) {
+        if (balErr.message?.startsWith('Insufficient ETH')) throw balErr;
+        // eth_getBalance unavailable — skip check and proceed
+      }
 
       // 2. Submit the ERC-20 transfer via the user's wallet
       const txHash = await window.ethereum.request({
