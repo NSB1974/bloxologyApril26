@@ -93,8 +93,12 @@ if (isProduction) {
 		},
 	}));
 
+	// Known API route prefixes (must be kept in sync with routes/index.js)
+	const API_PREFIXES = ['/hcgi/api', '/health', '/balance', '/defi', '/price-chart', '/contact', '/base', '/auth', '/swap', '/liquidity', '/lock', '/etherscan'];
+
 	app.use((req, res, next) => {
-		if (req.path.startsWith('/hcgi/api') || path.extname(req.path)) {
+		const isApiRoute = API_PREFIXES.some(prefix => req.path === prefix || req.path.startsWith(prefix + '/'));
+		if (isApiRoute || path.extname(req.path)) {
 			return next();
 		}
 		res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
