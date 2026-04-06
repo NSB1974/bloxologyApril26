@@ -21,6 +21,13 @@ const TOKEN_DECIMALS = {
   '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': 6,
   '0x6b175474e89094c44da98b954eedeac495271d0f': 18,
   '0xdac17f958d2ee523a2206206994597c13d831ec7': 6,
+  // Base ecosystem tokens
+  '0xfe91f7ef81ec8ae07ba563a76943caf52df3bfa9': 18, // MAGB
+  '0x10cfae91f373917eca57ccc3add7016fca132f22': 18, // PLEI
+  '0xac1bd2486aaf3b5c0fc3fd868558b082a531b2b4': 18, // TOSH
+  '0x0deb1ce15254d6b6cf261b3effeeda7889150fe2': 18, // BLUSH
+  '0x1dd2d631c92b1acdfcdd51a0f7145a50130050c4': 18, // ALB
+  '0x7e067aa42503a9acdfbce1ead8bbbc13c6ff8453': 18, // MEOW
 };
 
 const toAmountRaw = (amountDecimal, decimals) => {
