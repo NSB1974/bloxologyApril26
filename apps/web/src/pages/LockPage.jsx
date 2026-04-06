@@ -8,6 +8,7 @@ import { useNetwork } from '@/contexts/BaseAuthContext.jsx';
 import apiServerClient from '@/lib/apiServerClient.js';
 import { toast } from 'sonner';
 import { getTransactionUrl } from '@/utils/etherscanLinks.js';
+import { getBloxologyTokensForChain } from '@/lib/bloxologyTokenList.js';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,11 +19,16 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import TokenSelector from '@/components/TokenSelector.jsx';
 import TransactionStatus from '@/components/TransactionStatus.jsx';
 
-const DEFAULT_TOKENS = [
-  { symbol: 'ETH', name: 'Ethereum', address: '0x4200000000000000000000000000000000000006' },
-  { symbol: 'USDC', name: 'USD Coin', address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
-  { symbol: 'DAI', name: 'Dai Stablecoin', address: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb' }
-];
+const isValidTokenEntry = (token) => {
+  return Boolean(
+    token &&
+      typeof token.address === 'string' &&
+      token.address.startsWith('0x') &&
+      token.address.length === 42 &&
+      typeof token.symbol === 'string' &&
+      token.symbol.length > 0
+  );
+};
 
 const DURATIONS = [
   { days: 30, apy: '2%' },
@@ -117,8 +123,17 @@ const ensureWalletOnNetwork = async (selectedNetwork) => {
 const LockPage = () => {
   const { wallet, isConnected } = useWallet();
   const { selectedNetwork, customTokens } = useNetwork();
+  const defaultTokens = getBloxologyTokensForChain(selectedNetwork.id).filter(isValidTokenEntry);
+  const customTokensForNetwork = customTokens.filter(
+    (t) => Number(t.chainId) === Number(selectedNetwork.id) && isValidTokenEntry(t)
+  );
+  const allTokens = [...defaultTokens, ...customTokensForNetwork].filter(
+    (token, index, arr) =>
+      arr.findIndex((item) => item.address.toLowerCase() === token.address.toLowerCase()) === index
+  );
+  const fallbackTokenAddress = allTokens[0]?.address || '';
   
-  const [token, setToken] = useState(DEFAULT_TOKENS[0].address);
+  const [token, setToken] = useState(fallbackTokenAddress);
   const [amount, setAmount] = useState('');
   const [duration, setDuration] = useState('90');
   
@@ -127,10 +142,16 @@ const LockPage = () => {
   const [txError, setTxError] = useState(null);
   const [history, setHistory] = useState([]);
 
-  const allTokens = [
-    ...DEFAULT_TOKENS,
-    ...customTokens.filter(t => Number(t.chainId) === Number(selectedNetwork.id))
-  ];
+  useEffect(() => {
+    if (!token && fallbackTokenAddress) {
+      setToken(fallbackTokenAddress);
+      return;
+    }
+
+    if (token && !allTokens.find((t) => t.address.toLowerCase() === token.toLowerCase())) {
+      setToken(fallbackTokenAddress);
+    }
+  }, [token, allTokens, fallbackTokenAddress]);
 
   useEffect(() => {
     const savedHistory = localStorage.getItem('lock_history');
@@ -152,6 +173,7 @@ const LockPage = () => {
   const handleLock = async (e) => {
     e.preventDefault();
     if (!isConnected || !wallet) return toast.error('Connect wallet first');
+    if (!token) return toast.error('No token available for this network.');
     if (!amount || parseFloat(amount) <= 0) return toast.error('Enter a valid amount');
     if (!window.ethereum) return toast.error('No wallet extension detected. Please install MetaMask.');
 
