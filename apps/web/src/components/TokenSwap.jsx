@@ -146,6 +146,7 @@ const TokenSwap = () => {
 
         if (!response.ok || !quoteResult.success) {
           const providerUnavailable = response.status === 503;
+          const apiErrorCode = quoteResult?.errorCode;
           console.error('[TokenSwap] quote fetch failed', {
             status: response.status,
             chainId: selectedNetwork.id,
@@ -153,13 +154,24 @@ const TokenSwap = () => {
             fromToken,
             toToken,
             amount,
+            apiErrorCode,
             apiError: quoteResult?.error,
             payload: quoteResult,
           });
+
+          let errorMessage = quoteResult?.error || 'Failed to fetch quote';
+          if (apiErrorCode === 'INSUFFICIENT_BALANCE') {
+            errorMessage = 'Insufficient token balance for this swap amount.';
+          } else if (apiErrorCode === 'EXECUTION_UNAVAILABLE') {
+            errorMessage = 'No executable route available for this amount right now. Try a different amount or token pair.';
+          } else if (apiErrorCode === 'PRICING_UNAVAILABLE') {
+            errorMessage = 'Pricing unavailable for this token pair at the moment.';
+          }
+
           throw new Error(
             providerUnavailable
               ? 'Live swaps are temporarily unavailable. Please try again shortly.'
-              : (quoteResult.error || 'Failed to fetch quote')
+              : errorMessage
           );
         }
 
