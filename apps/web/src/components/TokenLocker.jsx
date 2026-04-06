@@ -34,19 +34,21 @@ const normaliseWalletError = (err, networkName) => {
   try { addCandidate(JSON.stringify(err)); } catch (_) {}
 
   const joined = candidates.join(' | ');
+  const joinedLower = joined.toLowerCase();
 
   if (
-    joined.includes("Failed to execute 'json' on 'Response'") ||
-    joined.includes('Unexpected end of JSON input') ||
-    joined.includes('JSON Parse error')
+    joinedLower.includes("failed to execute 'json' on 'response'") ||
+    joinedLower.includes('unexpected end of json input') ||
+    joinedLower.includes('json parse error') ||
+    joinedLower.includes('json rpc error')
   ) {
     return `Your wallet\'s RPC returned an empty response. Make sure your wallet is switched to ${networkName} and try again.`;
   }
 
   if (
-    joined.includes('insufficient funds') ||
-    joined.includes('insufficient eth') ||
-    joined.includes('gas required exceeds allowance')
+    joinedLower.includes('insufficient funds') ||
+    joinedLower.includes('insufficient eth') ||
+    joinedLower.includes('gas required exceeds allowance')
   ) {
     return `Insufficient ETH for gas fees on ${networkName}. Please top up your ETH balance and try again.`;
   }
