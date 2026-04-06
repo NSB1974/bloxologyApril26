@@ -25,6 +25,8 @@ const ERC20_ABI = [
   'function decimals() view returns (uint8)'
 ];
 
+const QUOTE_FALLBACK_ADDRESS = '0x000000000000000000000000000000000000dEaD';
+
 const TokenSwap = () => {
   const navigate = useNavigate();
   const { activeAddress } = useBaseAuth();
@@ -126,7 +128,9 @@ const TokenSwap = () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            fromAddress: activeAddress,
+            // Always provide an address so the API can return executable routes.
+            // Real swaps still require an actual connected wallet in executeSwap.
+            fromAddress: activeAddress || QUOTE_FALLBACK_ADDRESS,
             fromToken,
             toToken,
             amount,
@@ -347,8 +351,9 @@ const TokenSwap = () => {
   };
 
   const toTokenSymbol = availableTokens.find(t => t.address.toLowerCase() === toToken.toLowerCase())?.symbol || '';
-  const feeAmount = quote ? Number(quote.feeAmount ?? calculateSwapFee(quote.outputAmount)) : 0;
-  const netOutput = quote ? Number(quote.netOutputAmount ?? (parseFloat(quote.outputAmount) - feeAmount)) : 0;
+  // Temporary: fees are disabled until swap routing stability is fully validated.
+  const feeAmount = 0;
+  const netOutput = quote ? Number(quote.outputAmount ?? 0) : 0;
   const parsedBalance = Number(fromTokenBalance ?? '0');
   const parsedAmount = Number(amount || '0');
   const hasInsufficientBalance = Number.isFinite(parsedBalance)
@@ -577,11 +582,6 @@ const TokenSwap = () => {
                       <p className="text-xs font-semibold text-accent">Live executable quote from Alchemy.</p>
                     </div>
                   )}
-                  {quote?.provider === 'alchemy' && quote?.execution && quote?.feeRecipient && (
-                    <div className="rounded-lg border border-primary/20 bg-primary/10 px-3 py-2">
-                      <p className="text-xs font-semibold text-primary">0.4% fee enforced on-chain and routed to {quote.feeRecipient}.</p>
-                    </div>
-                  )}
                   <div className="flex items-center gap-2 rounded-lg border border-border/30 bg-white/5 px-3 py-2">
                     <Info className="h-3.5 w-3.5 text-[var(--text-secondary)]" />
                     <p className="text-[11px] font-medium text-[var(--text-secondary)]">
@@ -621,10 +621,10 @@ const TokenSwap = () => {
                 <FeeDisplay 
                   title="Swap Output Breakdown"
                   feeAmount={feeAmount}
-                  feePercent={FEE_CONFIG.SWAP_FEE_PERCENT}
+                  feePercent={0}
                   totalAmount={quote.outputAmount}
                   netAmount={netOutput}
-                  feeRecipient={quote?.feeRecipient || FEE_RECIPIENT}
+                  feeRecipient={FEE_RECIPIENT}
                   symbol={toTokenSymbol}
                 />
               </motion.div>
