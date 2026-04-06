@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync } from 'fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -85,7 +85,7 @@ if (isProduction) {
 		process.exit(1);
 	}
 
-	const indexHtml = readFileSync(path.join(webDistPath, 'index.html'), 'utf8');
+	const indexHtmlPath = path.join(webDistPath, 'index.html');
 
 	app.use(express.static(webDistPath));
 
@@ -93,7 +93,10 @@ if (isProduction) {
 		if (req.path.startsWith('/hcgi/api') || path.extname(req.path)) {
 			return next();
 		}
-		res.type('html').send(indexHtml);
+		res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+		res.setHeader('Pragma', 'no-cache');
+		res.setHeader('Expires', '0');
+		res.sendFile(indexHtmlPath);
 	});
 } else {
 	app.use((req, res) => {
