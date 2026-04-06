@@ -423,24 +423,14 @@ module.exports = async function handler(req, res) {
 
   try {
     if (quoteAddress) {
-      if (!ALCHEMY_API_KEY || String(ALCHEMY_API_KEY).includes('YOUR_ALCHEMY_API_KEY')) {
-        return json(res, 503, {
-          success: false,
-          data: null,
-          error: 'Live swap execution is temporarily unavailable (quote provider not configured).',
-        });
-      }
-
       const fromTokenLower = fromToken.toLowerCase();
       const fromDecimals = TOKEN_DECIMALS[fromTokenLower] ?? 18;
       const requestedAmountRaw = toAmountRaw(amount, fromDecimals);
-      let availableBalanceRaw = null;
 
       // Only check balance when a real wallet address is provided
       if (fromAddress) {
         try {
           const fromBalance = await getErc20Balance(fromAddress, fromToken, Number(chainId));
-          availableBalanceRaw = fromBalance.balanceRaw;
           if (fromBalance.balanceRaw < requestedAmountRaw) {
             return json(res, 400, {
               success: false,
@@ -449,191 +439,43 @@ module.exports = async function handler(req, res) {
             });
           }
         } catch (balanceError) {
-          console.error('[token-swap-quote] balance precheck failed', {
-            requestId,
-            chainId: Number(chainId),
-            fromAddress,
-            fromToken,
-            toToken,
-            amount,
-            error: String(balanceError?.message || balanceError),
-          });
-          // If balance pre-check fails, continue to quote request and return provider error.
+          // If balance pre-check fails, continue to quote — let the provider return the error.
         }
       }
 
+      // --- Primary: ODOS (reliable, works without special API plan) ---
       try {
-        const alchemyQuote = await fetchAlchemyQuote({ fromAddress: quoteAddress, fromToken, toToken, amount, chainId });
-        if (alchemyQuote) {
-          return json(res, 200, {
-            success: true,
-            data: alchemyQuote,
-            error: null,
-          });
+        const odosQuote = await fetchOdosQuote({ fromAddress: quoteAddress, fromToken, toToken, amount, chainId });
+        if (odosQuote) {
+          return json(res, 200, { success: true, data: odosQuote, error: null });
         }
-      } catch (alchemyError) {
-        const rawMessage = String(alchemyError?.message || 'Failed to fetch live executable quote');
-        const normalized = rawMessage.toLowerCase();
-        const insufficientError = normalized.includes('insufficient')
-          || normalized.includes('balance')
-          || normalized.includes('funds');
-        const approvalError = normalized.includes('allowance')
-          || normalized.includes('approval')
-          || normalized.includes('approve');
-        const routeError = normalized.includes('route') || normalized.includes('executable');
-        const fallbackErrors = [];
-
-        console.error('[token-swap-quote] alchemy quote error', {
-          requestId,
-          chainId: Number(chainId),
-          fromAddress,
-          fromToken,
-          toToken,
-          amount,
-          error: rawMessage,
-        });
-
-        // Retry once with a slightly smaller amount for near-max swaps.
-        if (routeError && availableBalanceRaw != null && requestedAmountRaw >= availableBalanceRaw) {
-          const retryRaw = (requestedAmountRaw * 995n) / 1000n; // 99.5%
-          if (retryRaw > 0n && retryRaw < requestedAmountRaw) {
-            const retryAmount = formatUnits(retryRaw, fromDecimals, fromDecimals);
-            try {
-              const retryQuote = await fetchAlchemyQuote({
-                fromAddress: quoteAddress,
-                fromToken,
-                toToken,
-                amount: retryAmount,
-                chainId,
-              });
-              if (retryQuote) {
-                return json(res, 200, {
-                  success: true,
-                  data: {
-                    ...retryQuote,
-                    requestedAmount: amount,
-                    adjustedAmount: retryAmount,
-                    autoAdjusted: true,
-                  },
-                  error: null,
-                });
-              }
-            } catch (retryError) {
-              console.error('[token-swap-quote] retry quote failed', {
-                requestId,
-                chainId: Number(chainId),
-                fromAddress,
-                fromToken,
-                toToken,
-                amount,
-                retryAmount,
-                error: String(retryError?.message || retryError),
-              });
-            }
-          }
-        }
-
-        // Some providers route wrapped native outputs using a native alias token identifier.
-        const wrappedNativeAddress = WRAPPED_NATIVE_BY_CHAIN[Number(chainId)];
-        if (routeError && wrappedNativeAddress && toToken.toLowerCase() === wrappedNativeAddress.toLowerCase()) {
-          try {
-            const aliasQuote = await fetchAlchemyQuote({
-              fromAddress: quoteAddress,
-              fromToken,
-              toToken,
-              amount,
-              chainId,
-              providerToToken: NATIVE_TOKEN_ALIAS,
-            });
-
-            if (aliasQuote) {
-              return json(res, 200, {
-                success: true,
-                data: {
-                  ...aliasQuote,
-                  providerToToken: NATIVE_TOKEN_ALIAS,
-                  tokenAliasUsed: true,
-                },
-                error: null,
-              });
-            }
-          } catch (aliasError) {
-            console.error('[token-swap-quote] native alias retry failed', {
-              requestId,
-              chainId: Number(chainId),
-              fromAddress,
-              fromToken,
-              toToken,
-              amount,
-              error: String(aliasError?.message || aliasError),
-            });
-          }
-        }
-
-        // Fallback to Uniswap quote provider when Alchemy cannot route.
-        if (routeError) {
-          try {
-            const uniswapQuote = await fetchUniswapQuote({ fromAddress: quoteAddress, fromToken, toToken, amount, chainId });
-            if (uniswapQuote) {
-              return json(res, 200, {
-                success: true,
-                data: uniswapQuote,
-                error: null,
-              });
-            }
-          } catch (uniswapError) {
-            const detail = String(uniswapError?.message || uniswapError);
-            fallbackErrors.push(`Uniswap: ${detail}`);
-            console.error('[token-swap-quote] uniswap fallback failed', {
-              requestId,
-              chainId: Number(chainId),
-              fromAddress,
-              fromToken,
-              toToken,
-              amount,
-              error: detail,
-            });
-          }
-        }
-
-        // Fallback to Odos quote provider when Alchemy and Uniswap cannot route.
-        if (routeError) {
-          try {
-            const odosQuote = await fetchOdosQuote({ fromAddress: quoteAddress, fromToken, toToken, amount, chainId });
-            if (odosQuote) {
-              return json(res, 200, {
-                success: true,
-                data: odosQuote,
-                error: null,
-              });
-            }
-          } catch (odosError) {
-            const detail = String(odosError?.message || odosError);
-            fallbackErrors.push(`Odos: ${detail}`);
-            console.error('[token-swap-quote] odos fallback failed', {
-              requestId,
-              chainId: Number(chainId),
-              fromAddress,
-              fromToken,
-              toToken,
-              amount,
-              error: detail,
-            });
-          }
-        }
-
-        return json(res, 422, {
-          success: false,
-          data: null,
-          error: insufficientError
-            ? 'Insufficient token balance for this swap amount. Lower the amount or top up your wallet.'
-            : approvalError
-              ? 'Token approval is required before swapping this token. Approve token spend in your wallet and try again.'
-              : routeError
-            ? `No executable route for this token pair and amount right now. Try a smaller amount, switch pair, or use a more liquid token (e.g. ETH/USDC/DAI/USDT). Provider detail: ${rawMessage}.${fallbackErrors.length ? ` Fallback detail: ${fallbackErrors.join(' | ')}.` : ''} Ref: ${requestId}`
-            : rawMessage,
+      } catch (odosError) {
+        console.error('[token-swap-quote] odos primary failed', {
+          requestId, chainId: Number(chainId), fromToken, toToken, amount,
+          error: String(odosError?.message || odosError),
         });
       }
+
+      // --- Fallback: Alchemy swap API ---
+      if (ALCHEMY_API_KEY && !String(ALCHEMY_API_KEY).includes('YOUR_ALCHEMY_API_KEY')) {
+        try {
+          const alchemyQuote = await fetchAlchemyQuote({ fromAddress: quoteAddress, fromToken, toToken, amount, chainId });
+          if (alchemyQuote) {
+            return json(res, 200, { success: true, data: alchemyQuote, error: null });
+          }
+        } catch (alchemyError) {
+          console.error('[token-swap-quote] alchemy fallback failed', {
+            requestId, chainId: Number(chainId), fromToken, toToken, amount,
+            error: String(alchemyError?.message || alchemyError),
+          });
+        }
+      }
+
+      return json(res, 422, {
+        success: false,
+        data: null,
+        error: `No executable route for this token pair and amount right now. Try a different amount or token pair. Ref: ${requestId}`,
+      });
     }
 
     const platform = CHAIN_ID_TO_COINGECKO_PLATFORM[Number(chainId)] || 'base';
