@@ -426,6 +426,14 @@ module.exports = async function handler(req, res) {
       const fromTokenLower = fromToken.toLowerCase();
       const fromDecimals = TOKEN_DECIMALS[fromTokenLower] ?? 18;
       const requestedAmountRaw = toAmountRaw(amount, fromDecimals);
+      const retryBpsSteps = [10000n, 9000n, 7500n, 5000n, 2500n];
+
+      const buildRetryAmount = (bps) => {
+        if (bps === 10000n) return amount;
+        const scaledRaw = (requestedAmountRaw * bps) / 10000n;
+        if (scaledRaw <= 0n) return null;
+        return formatUnits(scaledRaw, fromDecimals, fromDecimals);
+      };
 
       // Only check balance when a real wallet address is provided
       if (fromAddress) {
@@ -445,38 +453,76 @@ module.exports = async function handler(req, res) {
       }
 
       // --- Primary: ODOS (reliable, works without special API plan) ---
-      try {
-        const odosQuote = await fetchOdosQuote({ fromAddress: quoteAddress, fromToken, toToken, amount, chainId });
-        if (odosQuote) {
-          return json(res, 200, { success: true, data: odosQuote, error: null });
+      const odosRetryErrors = [];
+      for (const bps of retryBpsSteps) {
+        const retryAmount = buildRetryAmount(bps);
+        if (!retryAmount) continue;
+        try {
+          const odosQuote = await fetchOdosQuote({ fromAddress: quoteAddress, fromToken, toToken, amount: retryAmount, chainId });
+          if (odosQuote) {
+            return json(res, 200, {
+              success: true,
+              data: {
+                ...odosQuote,
+                requestedAmount: amount,
+                adjustedAmount: retryAmount,
+                autoAdjusted: retryAmount !== amount,
+              },
+              error: null,
+            });
+          }
+        } catch (odosError) {
+          odosRetryErrors.push(`ODOS ${retryAmount}: ${String(odosError?.message || odosError)}`);
         }
-      } catch (odosError) {
-        console.error('[token-swap-quote] odos primary failed', {
-          requestId, chainId: Number(chainId), fromToken, toToken, amount,
-          error: String(odosError?.message || odosError),
-        });
       }
+      console.error('[token-swap-quote] odos primary failed', {
+        requestId,
+        chainId: Number(chainId),
+        fromToken,
+        toToken,
+        amount,
+        errors: odosRetryErrors,
+      });
 
       // --- Fallback: Alchemy swap API ---
+      const alchemyRetryErrors = [];
       if (ALCHEMY_API_KEY && !String(ALCHEMY_API_KEY).includes('YOUR_ALCHEMY_API_KEY')) {
-        try {
-          const alchemyQuote = await fetchAlchemyQuote({ fromAddress: quoteAddress, fromToken, toToken, amount, chainId });
-          if (alchemyQuote) {
-            return json(res, 200, { success: true, data: alchemyQuote, error: null });
+        for (const bps of retryBpsSteps) {
+          const retryAmount = buildRetryAmount(bps);
+          if (!retryAmount) continue;
+          try {
+            const alchemyQuote = await fetchAlchemyQuote({ fromAddress: quoteAddress, fromToken, toToken, amount: retryAmount, chainId });
+            if (alchemyQuote) {
+              return json(res, 200, {
+                success: true,
+                data: {
+                  ...alchemyQuote,
+                  requestedAmount: amount,
+                  adjustedAmount: retryAmount,
+                  autoAdjusted: retryAmount !== amount,
+                },
+                error: null,
+              });
+            }
+          } catch (alchemyError) {
+            alchemyRetryErrors.push(`Alchemy ${retryAmount}: ${String(alchemyError?.message || alchemyError)}`);
           }
-        } catch (alchemyError) {
-          console.error('[token-swap-quote] alchemy fallback failed', {
-            requestId, chainId: Number(chainId), fromToken, toToken, amount,
-            error: String(alchemyError?.message || alchemyError),
-          });
         }
+        console.error('[token-swap-quote] alchemy fallback failed', {
+          requestId,
+          chainId: Number(chainId),
+          fromToken,
+          toToken,
+          amount,
+          errors: alchemyRetryErrors,
+        });
       }
 
       return json(res, 422, {
         success: false,
         data: null,
         errorCode: 'EXECUTION_UNAVAILABLE',
-        error: `No executable route for this token pair and amount right now. Try a different amount or token pair. Ref: ${requestId}`,
+        error: `No executable route for this token pair and amount right now. Try a different amount or token pair. Ref: ${requestId}. ${odosRetryErrors.length ? `ODOS attempts: ${odosRetryErrors.join(' | ')}.` : ''} ${alchemyRetryErrors.length ? `Alchemy attempts: ${alchemyRetryErrors.join(' | ')}.` : ''}`,
       });
     }
 
