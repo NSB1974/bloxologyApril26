@@ -105,6 +105,11 @@ const makeMockAddress = (seed = 1) => {
   return `0x${hex}`;
 };
 
+const makeRandomMockAddress = () => {
+  const randomHex = Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+  return `0x${randomHex}`;
+};
+
 export const useBaseAuth = () => {
   const context = useContext(BaseAuthContext);
   if (!context) {
@@ -464,13 +469,13 @@ export const BaseAuthProvider = ({ children }) => {
         console.error("[BaseAuthContext] User rejected request", error);
       }
     } else {
-      const mockAddress = '0x' + Math.random().toString(16).slice(2, 42);
+      const mockAddress = makeRandomMockAddress();
       setIsConnected(true);
       setWalletType('mock');
       localStorage.setItem('base_auth_session', mockAddress);
       localStorage.setItem('base_wallet_type', 'mock');
       
-      const mockAccounts = [mockAddress, '0x' + Math.random().toString(16).slice(2, 42)];
+      const mockAccounts = [mockAddress, makeRandomMockAddress()];
       await fetchAvailableAddresses(mockAccounts, mockAddress);
       switchAddress(mockAddress);
       console.log('[BaseAuthContext] Connected via Mock Wallet:', mockAddress);
