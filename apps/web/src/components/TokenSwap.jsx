@@ -42,6 +42,7 @@ const TokenSwap = () => {
   const [isSwapping, setIsSwapping] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [quoteErrorCode, setQuoteErrorCode] = useState(null);
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
   const [isAddTokenOpen, setIsAddTokenOpen] = useState(false);
   const [isAddTokenLoading, setIsAddTokenLoading] = useState(false);
@@ -68,6 +69,7 @@ const TokenSwap = () => {
   useEffect(() => {
     setResult(null);
     setError(null);
+    setQuoteErrorCode(null);
     // Reset to default tokens if custom tokens were removed
     if (!availableTokens.find(t => t.address.toLowerCase() === fromToken.toLowerCase())) {
       setFromToken(defaultTokens[0].address);
@@ -121,6 +123,7 @@ const TokenSwap = () => {
 
       setLoadingQuote(true);
       setError(null);
+      setQuoteErrorCode(null);
 
       try {
         let quoteResult = null;
@@ -168,19 +171,24 @@ const TokenSwap = () => {
             errorMessage = 'Pricing unavailable for this token pair at the moment.';
           }
 
-          throw new Error(
+          const quoteError = new Error(
             providerUnavailable
               ? 'Live swaps are temporarily unavailable. Please try again shortly.'
               : errorMessage
           );
+          quoteError.quoteErrorCode = providerUnavailable ? 'PROVIDER_UNAVAILABLE' : apiErrorCode || null;
+          throw quoteError;
         }
 
         const quoteData = quoteResult?.data;
         if (!quoteData?.execution) {
-          throw new Error('No executable route available for this amount right now. Try a different amount or token pair.');
+          const executionError = new Error('No executable route available for this amount right now. Try a different amount or token pair.');
+          executionError.quoteErrorCode = 'EXECUTION_UNAVAILABLE';
+          throw executionError;
         }
 
         setQuote(quoteData);
+        setQuoteErrorCode(null);
       } catch (err) {
         console.error('[TokenSwap] quote request exception', {
           chainId: selectedNetwork.id,
@@ -191,6 +199,7 @@ const TokenSwap = () => {
           error: err?.message || String(err),
         });
         setError(err.message);
+        setQuoteErrorCode(err?.quoteErrorCode || null);
         setQuote(null);
       } finally {
         setLoadingQuote(false);
@@ -391,6 +400,7 @@ const TokenSwap = () => {
       quoteProvider: quote?.provider || null,
       executionType: quote?.execution?.type || null,
       hasExecution: Boolean(quote?.execution),
+      quoteErrorCode: quoteErrorCode || null,
       error: error || null,
       userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
     };
@@ -546,6 +556,9 @@ const TokenSwap = () => {
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription className="font-medium space-y-2">
                   <p>{error}</p>
+                  {quoteErrorCode && (
+                    <p className="text-xs font-semibold text-destructive/90">Error Code: {quoteErrorCode}</p>
+                  )}
                   <Button
                     type="button"
                     variant="outline"
