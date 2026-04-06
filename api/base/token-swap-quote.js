@@ -500,7 +500,7 @@ module.exports = async function handler(req, res) {
             const retryAmount = formatUnits(retryRaw, fromDecimals, fromDecimals);
             try {
               const retryQuote = await fetchAlchemyQuote({
-                fromAddress,
+                fromAddress: quoteAddress,
                 fromToken,
                 toToken,
                 amount: retryAmount,
@@ -538,7 +538,7 @@ module.exports = async function handler(req, res) {
         if (routeError && wrappedNativeAddress && toToken.toLowerCase() === wrappedNativeAddress.toLowerCase()) {
           try {
             const aliasQuote = await fetchAlchemyQuote({
-              fromAddress,
+              fromAddress: quoteAddress,
               fromToken,
               toToken,
               amount,
@@ -573,7 +573,7 @@ module.exports = async function handler(req, res) {
         // Fallback to Uniswap quote provider when Alchemy cannot route.
         if (routeError) {
           try {
-            const uniswapQuote = await fetchUniswapQuote({ fromAddress, fromToken, toToken, amount, chainId });
+            const uniswapQuote = await fetchUniswapQuote({ fromAddress: quoteAddress, fromToken, toToken, amount, chainId });
             if (uniswapQuote) {
               return json(res, 200, {
                 success: true,
@@ -599,7 +599,7 @@ module.exports = async function handler(req, res) {
         // Fallback to Odos quote provider when Alchemy and Uniswap cannot route.
         if (routeError) {
           try {
-            const odosQuote = await fetchOdosQuote({ fromAddress, fromToken, toToken, amount, chainId });
+            const odosQuote = await fetchOdosQuote({ fromAddress: quoteAddress, fromToken, toToken, amount, chainId });
             if (odosQuote) {
               return json(res, 200, {
                 success: true,
