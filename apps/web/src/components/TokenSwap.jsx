@@ -27,14 +27,25 @@ const ERC20_ABI = [
 
 const QUOTE_FALLBACK_ADDRESS = '0x000000000000000000000000000000000000dEaD';
 
+const isValidTokenEntry = (token) => {
+  return Boolean(
+    token &&
+      typeof token.address === 'string' &&
+      token.address.startsWith('0x') &&
+      token.address.length === 42 &&
+      typeof token.symbol === 'string' &&
+      token.symbol.length > 0
+  );
+};
+
 const TokenSwap = () => {
   const navigate = useNavigate();
   const { activeAddress } = useBaseAuth();
   const { selectedNetwork, customTokens, addCustomToken } = useNetwork();
   const { toast } = useToast();
-  const defaultTokens = getBloxologyTokensForChain(selectedNetwork.id);
-  const [fromToken, setFromToken] = useState(defaultTokens[0].address);
-  const [toToken, setToToken] = useState(defaultTokens[1].address);
+  const defaultTokens = getBloxologyTokensForChain(selectedNetwork.id).filter(isValidTokenEntry);
+  const [fromToken, setFromToken] = useState(defaultTokens[0]?.address || '');
+  const [toToken, setToToken] = useState(defaultTokens[1]?.address || defaultTokens[0]?.address || '');
   const [amount, setAmount] = useState('');
   
   const [quote, setQuote] = useState(null);
@@ -58,26 +69,35 @@ const TokenSwap = () => {
 
   // Combine default tokens with custom tokens for current network
   const customTokensForNetwork = customTokens.filter(
-    (t) => Number(t.chainId) === Number(selectedNetwork.id)
+    (t) => Number(t.chainId) === Number(selectedNetwork.id) && isValidTokenEntry(t)
   );
   const availableTokens = [...defaultTokens, ...customTokensForNetwork].filter(
     (token, index, arr) =>
       arr.findIndex((item) => item.address.toLowerCase() === token.address.toLowerCase()) === index
   );
 
+  const fallbackFromToken = availableTokens[0]?.address || '';
+  const fallbackToToken = availableTokens[1]?.address || fallbackFromToken;
+
   // Reset state when active address or network changes
   useEffect(() => {
     setResult(null);
     setError(null);
     setQuoteErrorCode(null);
+    if (!fromToken && fallbackFromToken) {
+      setFromToken(fallbackFromToken);
+    }
+    if (!toToken && fallbackToToken) {
+      setToToken(fallbackToToken);
+    }
     // Reset to default tokens if custom tokens were removed
-    if (!availableTokens.find(t => t.address.toLowerCase() === fromToken.toLowerCase())) {
-      setFromToken(defaultTokens[0].address);
+    if (fromToken && !availableTokens.find(t => t.address.toLowerCase() === fromToken.toLowerCase())) {
+      setFromToken(fallbackFromToken);
     }
-    if (!availableTokens.find(t => t.address.toLowerCase() === toToken.toLowerCase())) {
-      setToToken(defaultTokens[1].address);
+    if (toToken && !availableTokens.find(t => t.address.toLowerCase() === toToken.toLowerCase())) {
+      setToToken(fallbackToToken);
     }
-  }, [activeAddress, selectedNetwork.id, customTokens]);
+  }, [activeAddress, selectedNetwork.id, customTokens, fromToken, toToken, fallbackFromToken, fallbackToToken, availableTokens]);
 
   // Fetch balance for the "from" token
   useEffect(() => {

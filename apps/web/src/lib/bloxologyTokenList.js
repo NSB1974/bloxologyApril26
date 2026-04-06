@@ -131,6 +131,66 @@ export const BLOXOLOGY_TOKENS_BY_CHAIN = {
   ],
 };
 
+const CHAIN_ALIASES = {
+  base: 8453,
+  basesepolia: 84532,
+  ethereum: 1,
+  eth: 1,
+  mainnet: 1,
+  sepolia: 11155111,
+  polygon: 137,
+  kava: 2222,
+};
+
+const CHAIN_FALLBACKS = {
+  84532: 8453,
+  11155111: 1,
+};
+
+const normaliseChainId = (chainId) => {
+  if (typeof chainId === 'number' && Number.isFinite(chainId)) {
+    return chainId;
+  }
+
+  if (typeof chainId === 'string') {
+    const trimmed = chainId.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    if (/^0x[0-9a-f]+$/i.test(trimmed)) {
+      const fromHex = Number.parseInt(trimmed, 16);
+      return Number.isFinite(fromHex) ? fromHex : null;
+    }
+
+    const fromNumber = Number(trimmed);
+    if (Number.isFinite(fromNumber)) {
+      return fromNumber;
+    }
+
+    const alias = CHAIN_ALIASES[trimmed.toLowerCase().replace(/\s+/g, '')];
+    return Number.isFinite(alias) ? alias : null;
+  }
+
+  if (chainId && typeof chainId === 'object') {
+    return normaliseChainId(chainId.id ?? chainId.chainId ?? chainId.network);
+  }
+
+  return null;
+};
+
 export const getBloxologyTokensForChain = (chainId) => {
-  return BLOXOLOGY_TOKENS_BY_CHAIN[Number(chainId)] || BLOXOLOGY_TOKENS_BY_CHAIN[8453];
+  const parsedChainId = normaliseChainId(chainId);
+  const directMatch = parsedChainId ? BLOXOLOGY_TOKENS_BY_CHAIN[parsedChainId] : null;
+  if (Array.isArray(directMatch) && directMatch.length > 0) {
+    return directMatch;
+  }
+
+  const fallbackChainId = parsedChainId ? CHAIN_FALLBACKS[parsedChainId] : null;
+  const fallbackMatch = fallbackChainId ? BLOXOLOGY_TOKENS_BY_CHAIN[fallbackChainId] : null;
+  if (Array.isArray(fallbackMatch) && fallbackMatch.length > 0) {
+    return fallbackMatch;
+  }
+
+  return BLOXOLOGY_TOKENS_BY_CHAIN[8453];
 };
