@@ -230,7 +230,7 @@ router.get('/wallet-balances', async (req, res) => {
   // Common Base tokens
   const tokens = [
     { symbol: 'ETH', address: '0x4200000000000000000000000000000000000006' },
-    { symbol: 'USDC', address: '0x833589fCD6eDb6E08f4c7C32D4f71b1566469c3d' },
+    { symbol: 'USDC', address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' },
     { symbol: 'DAI', address: '0x50c5725949A6F0c72E6C4a641F14122319047A17' },
     { symbol: 'USDT', address: '0xfde4C96c8593536E31F26A3d5cac40ff63546477' },
   ];

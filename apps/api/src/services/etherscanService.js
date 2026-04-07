@@ -333,7 +333,7 @@ const getTokenBalances = async (address, chainId) => {
         tokenBalances.set(tokenAddress, {
           address: tokenAddress,
           balance: BigInt(0),
-          decimals: parseInt(tx.tokenDecimal, 10) || 18,
+          decimals: Number.isFinite(parseInt(tx.tokenDecimal, 10)) ? parseInt(tx.tokenDecimal, 10) : 18,
           symbol: tx.tokenSymbol || 'UNKNOWN',
           name: tx.tokenName || 'Unknown Token',
         });

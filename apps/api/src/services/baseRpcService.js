@@ -171,7 +171,8 @@ const fetchTokenBalance = async (walletAddress, tokenAddress) => {
       'latest',
     ]);
 
-    const decimals = parseInt(decimalsData, 16);
+    const parsedDecimals = parseInt(decimalsData, 16);
+    const decimals = Number.isFinite(parsedDecimals) ? parsedDecimals : 18;
 
     // Get symbol
     const symbolData = await makeRpcCall('eth_call', [
@@ -201,7 +202,12 @@ const fetchTokenBalance = async (walletAddress, tokenAddress) => {
       'latest',
     ]);
 
-    const balance = (BigInt(balanceData) / BigInt(10 ** decimals)).toString();
+    const rawBalance = BigInt(balanceData);
+    const divisor = BigInt(10) ** BigInt(decimals);
+    const whole = rawBalance / divisor;
+    const remainder = rawBalance % divisor;
+    const fractionStr = remainder.toString().padStart(decimals, '0');
+    const balance = `${whole}.${fractionStr}`;
 
     const result = {
       balance,
@@ -238,7 +244,8 @@ const fetchTokenPrice = async (tokenAddress) => {
       'latest',
     ]);
 
-    const decimals = parseInt(decimalsData, 16);
+    const parsedDecimals = parseInt(decimalsData, 16);
+    const decimals = Number.isFinite(parsedDecimals) ? parsedDecimals : 18;
 
     const symbolData = await makeRpcCall('eth_call', [
       {
