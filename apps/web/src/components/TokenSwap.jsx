@@ -53,6 +53,7 @@ const TokenSwap = () => {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [quoteErrorCode, setQuoteErrorCode] = useState(null);
+  const [providerErrors, setProviderErrors] = useState(null);
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
   const [isAddTokenOpen, setIsAddTokenOpen] = useState(false);
   const [isAddTokenLoading, setIsAddTokenLoading] = useState(false);
@@ -89,6 +90,7 @@ const TokenSwap = () => {
     setResult(null);
     setError(null);
     setQuoteErrorCode(null);
+    setProviderErrors(null);
     if (!fromToken && fallbackFromToken) {
       setFromToken(fallbackFromToken);
     }
@@ -149,6 +151,7 @@ const TokenSwap = () => {
       setLoadingQuote(true);
       setError(null);
       setQuoteErrorCode(null);
+      setProviderErrors(null);
 
       try {
         let quoteResult = null;
@@ -192,6 +195,9 @@ const TokenSwap = () => {
             errorMessage = 'Insufficient token balance for this swap amount.';
           } else if (apiErrorCode === 'EXECUTION_UNAVAILABLE') {
             errorMessage = 'No executable route available for this amount right now. Try a different amount or token pair.';
+            if (quoteResult?.providerErrors) {
+              setProviderErrors(quoteResult.providerErrors);
+            }
           } else if (apiErrorCode === 'PRICING_UNAVAILABLE') {
             errorMessage = 'Pricing unavailable for this token pair at the moment.';
           }
@@ -214,6 +220,7 @@ const TokenSwap = () => {
 
         setQuote(quoteData);
         setQuoteErrorCode(null);
+        setProviderErrors(null);
       } catch (err) {
         console.error('[TokenSwap] quote request exception', {
           chainId: selectedNetwork.id,
@@ -426,6 +433,7 @@ const TokenSwap = () => {
       executionType: quote?.execution?.type || null,
       hasExecution: Boolean(quote?.execution),
       quoteErrorCode: quoteErrorCode || null,
+      providerErrors: providerErrors || null,
       error: error || null,
       userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
     };
@@ -635,6 +643,16 @@ const TokenSwap = () => {
                   <p>{error}</p>
                   {quoteErrorCode && (
                     <p className="text-xs font-semibold text-destructive/90">Error Code: {quoteErrorCode}</p>
+                  )}
+                  {providerErrors && (
+                    <div className="text-xs text-destructive/80 space-y-1 mt-1">
+                      {providerErrors.odos?.length > 0 && (
+                        <p><span className="font-semibold">ODOS:</span> {providerErrors.odos[0]}</p>
+                      )}
+                      {providerErrors.alchemy?.length > 0 && (
+                        <p><span className="font-semibold">Alchemy:</span> {providerErrors.alchemy[0]}</p>
+                      )}
+                    </div>
                   )}
                   <Button
                     type="button"

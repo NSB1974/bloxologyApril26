@@ -524,6 +524,10 @@ module.exports = async function handler(req, res) {
         data: null,
         errorCode: 'EXECUTION_UNAVAILABLE',
         error: `No executable route for this token pair and amount right now. Try a different amount or token pair. Ref: ${requestId}. ${odosRetryErrors.length ? `ODOS attempts: ${odosRetryErrors.join(' | ')}.` : ''} ${alchemyRetryErrors.length ? `Alchemy attempts: ${alchemyRetryErrors.join(' | ')}.` : ''}`,
+        providerErrors: {
+          odos: odosRetryErrors,
+          alchemy: alchemyRetryErrors,
+        },
       });
     }
 
