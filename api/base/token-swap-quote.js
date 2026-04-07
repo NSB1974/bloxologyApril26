@@ -3,7 +3,6 @@ const { formatUnits, getUsdPrice, getErc20Balance, CHAIN_ID_TO_COINGECKO_PLATFOR
 const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY;
 const UNISWAP_API_KEY = process.env.UNISWAP_API_KEY;
 const ODOS_API_KEY = process.env.ODOS_API_KEY;
-const FEE_RECIPIENT = '0xA7a6bd20FB57c43223084ad8525E24743e52C8ec';
 const SWAP_FEE_BPS = 40;
 const NATIVE_TOKEN_ALIAS = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
 
@@ -221,7 +220,6 @@ const fetchOdosQuote = async ({ fromAddress, fromToken, toToken, amount, chainId
     outputAmount,
     feeAmount: '0',
     netOutputAmount: outputAmount,
-    feeRecipient: FEE_RECIPIENT,
     exchangeRate: Number.isFinite(exchangeRate) ? exchangeRate.toFixed(9) : '0',
     gasFee: '0',
     slippage: '0.50',
@@ -242,10 +240,6 @@ const fetchOdosQuote = async ({ fromAddress, fromToken, toToken, amount, chainId
         gas: tx.gas,
         gasPrice: tx.gasPrice,
       },
-    },
-    rawQuote: {
-      quote: quotePayload,
-      assemble: assemblePayload,
     },
   };
 };
@@ -301,7 +295,6 @@ const fetchUniswapQuote = async ({ fromAddress, fromToken, toToken, amount, chai
     outputAmount,
     feeAmount: '0',
     netOutputAmount: outputAmount,
-    feeRecipient: FEE_RECIPIENT,
     exchangeRate: Number.isFinite(exchangeRate) ? exchangeRate.toFixed(9) : '0',
     gasFee: '0',
     slippage: '1.00',
@@ -322,7 +315,6 @@ const fetchUniswapQuote = async ({ fromAddress, fromToken, toToken, amount, chai
         gasLimit: quote?.gasUseEstimate ? `0x${Number(quote.gasUseEstimate).toString(16)}` : undefined,
       },
     },
-    rawQuote: quotePayload,
   };
 };
 
@@ -365,7 +357,6 @@ const fetchAlchemyQuote = async ({ fromAddress, fromToken, toToken, amount, chai
     outputAmount: outputAmount || '0',
     feeAmount,
     netOutputAmount: netOutputAmount || '0',
-    feeRecipient: FEE_RECIPIENT,
     exchangeRate: Number.isFinite(exchangeRate) ? exchangeRate.toFixed(9) : '0',
     gasFee: '0',
     slippage: '0.50',
@@ -378,7 +369,6 @@ const fetchAlchemyQuote = async ({ fromAddress, fromToken, toToken, amount, chai
     },
     provider: 'alchemy',
     execution,
-    rawQuote: quoteResult,
   };
 };
 
@@ -564,7 +554,6 @@ module.exports = async function handler(req, res) {
         outputAmount: netOutput.toFixed(6),
         feeAmount: feeAmount.toFixed(6),
         netOutputAmount: (netOutput - feeAmount).toFixed(6),
-        feeRecipient: FEE_RECIPIENT,
         exchangeRate: exchangeRate.toFixed(6),
         gasFee: estimatedGasEth.toFixed(6),
         slippage: priceImpactPercent.toFixed(2),
