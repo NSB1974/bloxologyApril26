@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Lock, Search, Loader2, CheckCircle, AlertCircle, Clock, Shield } from 'lucide-react';
 import { useBaseAuth, useNetwork } from '@/contexts/BaseAuthContext.jsx';
+import { formatBalance } from '@/utils/formatBalance.js';
 import apiServerClient from '@/lib/apiServerClient.js';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -58,6 +59,9 @@ const normaliseWalletError = (err, networkName) => {
 
 const ensureWalletOnNetwork = async (selectedNetwork) => {
   if (!window.ethereum) return;
+
+  // Ensure wallet has authorised this session before any provider calls
+  await window.ethereum.request({ method: 'eth_requestAccounts' });
 
   try {
     const desiredHex = `0x${Number(selectedNetwork.id).toString(16)}`;
@@ -214,7 +218,7 @@ const TokenLocker = () => {
         const balHex = await window.ethereum.request({ method: 'eth_getBalance', params: [activeAddress, 'latest'] });
         const balWei = BigInt(balHex);
         if (balWei < MIN_GAS_WEI) {
-          const balEth = (Number(balWei) / 1e18).toFixed(6);
+          const balEth = formatBalance(Number(balWei) / 1e18);
           throw new Error(`Insufficient ETH for gas fees. You have ${balEth} ETH on ${selectedNetwork.name} but need at least 0.00005 ETH to send this transaction.`);
         }
       } catch (balErr) {
@@ -298,7 +302,7 @@ const TokenLocker = () => {
                 </div>
                 {balanceInfo && (
                   <p className="text-sm text-accent font-medium mt-1">
-                    Available Balance: {balanceInfo.balance} {balanceInfo.symbol}
+                    Available Balance: {formatBalance(balanceInfo.balance)} {balanceInfo.symbol}
                   </p>
                 )}
               </div>

@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { ChevronDown, Search, Coins } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
+import { formatBalance } from '@/utils/formatBalance.js';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -108,7 +109,7 @@ const TokenSelector = ({ selectedToken, onTokenChange, tokens = [], disabled, la
                 </div>
                 {token.balance && (
                   <div className="text-right flex flex-col">
-                    <span className="font-medium text-[var(--text-primary)]">{token.balance}</span>
+                    <span className="font-medium text-[var(--text-primary)]">{formatBalance(token.balance)}</span>
                   </div>
                 )}
               </button>

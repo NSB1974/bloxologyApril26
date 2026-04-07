@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Copy, Check, LogOut, RefreshCw, Wallet, Activity, Layers, ArrowRightLeft, Info } from 'lucide-react';
 import { useBaseAuth, useNetwork } from '@/contexts/BaseAuthContext.jsx';
+import { formatBalance } from '@/utils/formatBalance.js';
 import apiServerClient from '@/lib/apiServerClient.js';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -151,7 +152,7 @@ const ConnectedWalletDashboard = () => {
                       <div className="flex items-end justify-between mt-3">
                         <div>
                           <span className="text-xs text-[var(--text-muted)]">Balance</span>
-                          <p className="text-sm font-bold text-accent">{account.balance} ETH</p>
+                          <p className="text-sm font-bold text-accent">{formatBalance(account.balance)} ETH</p>
                         </div>
                         {!isActive && (
                           <Button 
@@ -286,7 +287,7 @@ const ConnectedWalletDashboard = () => {
                             </div>
                             <div>
                               <p className="font-bold text-[var(--text-primary)]">{token.token}</p>
-                              <p className="text-xs text-[var(--text-secondary)] font-medium">{parseFloat(token.balance).toLocaleString(undefined, { maximumFractionDigits: 9 })}</p>
+                              <p className="text-xs text-[var(--text-secondary)] font-medium">{formatBalance(token.balance)}</p>
                               <TooltipProvider delayDuration={120}>
                                 <Tooltip>
                                   <TooltipTrigger asChild>

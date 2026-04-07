@@ -2,6 +2,7 @@
 import React from 'react';
 import { Receipt, ArrowRight, Wallet } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { formatBalance } from '@/utils/formatBalance.js';
 
 const FeeDisplay = ({ 
   feeAmount, 
@@ -13,8 +14,7 @@ const FeeDisplay = ({
   title = 'Transaction Breakdown'
 }) => {
   const formatVal = (val) => {
-    const num = parseFloat(val);
-    return isNaN(num) ? '0.000000000' : num.toLocaleString('en-US', { maximumFractionDigits: 9 });
+    return formatBalance(val);
   };
 
   return (

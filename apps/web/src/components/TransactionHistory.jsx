@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { formatBalance } from '@/utils/formatBalance.js';
 import { 
   ArrowRightLeft, ArrowUpRight, ArrowDownLeft, FileCode, 
   Search, Filter, RefreshCw, History, ChevronLeft, ChevronRight 
@@ -92,15 +93,12 @@ const TransactionHistory = ({ currentNetwork, walletAddress }) => {
   };
 
   const formatAmount = (valueEth) => {
-    if (!valueEth) return '0.000000000';
+    if (!valueEth) return '0.000000';
     const num = Number(valueEth);
-    if (!Number.isFinite(num) || num === 0) return '0.000000000';
+    if (!Number.isFinite(num) || num === 0) return '0.000000';
     if (Math.abs(num) < 0.000000001) return '< 0.000000001';
 
-    return num.toLocaleString(undefined, {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 9,
-    });
+    return formatBalance(num);
   };
 
   const filteredTransactions = transactions.filter(tx => {

@@ -9,6 +9,7 @@ import apiServerClient from '@/lib/apiServerClient.js';
 import { toast } from 'sonner';
 import { getTransactionUrl } from '@/utils/etherscanLinks.js';
 import { getBloxologyTokensForChain } from '@/lib/bloxologyTokenList.js';
+import { formatBalance } from '@/utils/formatBalance.js';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -85,6 +86,9 @@ const normaliseWalletError = (err, networkName) => {
 
 const ensureWalletOnNetwork = async (selectedNetwork) => {
   if (!window.ethereum) return;
+
+  // Ensure wallet has authorised this session before any provider calls
+  await window.ethereum.request({ method: 'eth_requestAccounts' });
 
   try {
     const desiredHex = `0x${Number(selectedNetwork.id).toString(16)}`;
@@ -223,7 +227,7 @@ const LockPage = () => {
         const balHex = await window.ethereum.request({ method: 'eth_getBalance', params: [wallet, 'latest'] });
         const balWei = BigInt(balHex);
         if (balWei < MIN_GAS_WEI) {
-          const balEth = (Number(balWei) / 1e18).toFixed(6);
+          const balEth = formatBalance(Number(balWei) / 1e18);
           throw new Error(`Insufficient ETH for gas fees. You have ${balEth} ETH on ${selectedNetwork.name} but need at least 0.00005 ETH to send this transaction.`);
         }
       } catch (balErr) {

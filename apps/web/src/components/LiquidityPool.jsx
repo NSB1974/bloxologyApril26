@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Search, Loader2, AlertCircle, Droplets, Percent, Layers, Plus, CheckCircle } from 'lucide-react';
 import apiServerClient from '@/lib/apiServerClient.js';
+import { formatBalance } from '@/utils/formatBalance.js';
 import { useBaseAuth, useNetwork } from '@/contexts/BaseAuthContext.jsx';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -60,11 +61,7 @@ const LiquidityPool = () => {
   };
 
   const formatNumber = (val) => {
-    const n = Number(val);
-    const fracs = Math.abs(n) < 0.01 ? 9 : Math.abs(n) < 1 ? 6 : 4;
-    return new Intl.NumberFormat('en-US', {
-      maximumFractionDigits: fracs
-    }).format(n);
+    return formatBalance(val);
   };
 
   const calculateEstimatedSlippage = () => {

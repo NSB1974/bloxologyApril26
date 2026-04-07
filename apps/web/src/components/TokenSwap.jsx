@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowDownUp, Loader2, CheckCircle, AlertCircle, Settings, Info } from 'lucide-react';
 import { ethers } from 'ethers';
+import { formatBalance } from '@/utils/formatBalance.js';
 import apiServerClient from '@/lib/apiServerClient.js';
 import { useBaseAuth, useNetwork } from '@/contexts/BaseAuthContext.jsx';
 import { Button } from '@/components/ui/button';
@@ -330,6 +331,9 @@ const TokenSwap = () => {
         throw new Error('Wallet provider not found. Please connect a wallet extension.');
       }
 
+      // Ensure wallet has authorised this session before any provider calls
+      await window.ethereum.request({ method: 'eth_requestAccounts' });
+
       if (!quote.execution) {
         throw new Error('Live execution data unavailable for this quote. Try another token pair or reconnect wallet.');
       }
@@ -340,7 +344,7 @@ const TokenSwap = () => {
         const balHex = await window.ethereum.request({ method: 'eth_getBalance', params: [activeAddress, 'latest'] });
         const balWei = BigInt(balHex);
         if (balWei < MIN_GAS_WEI) {
-          const balEth = (Number(balWei) / 1e18).toFixed(6);
+          const balEth = formatBalance(Number(balWei) / 1e18);
           throw new Error(`Insufficient ETH for gas fees. You have ${balEth} ETH on ${selectedNetwork.name} but need at least 0.00005 ETH to send this transaction.`);
         }
       } catch (gasCheckErr) {
@@ -533,7 +537,7 @@ const TokenSwap = () => {
                     <>
                       <span className="text-xs text-[var(--text-secondary)]">
                         Balance: {Number.isFinite(parsedBalance)
-                          ? parsedBalance.toLocaleString(undefined, { maximumFractionDigits: 9 })
+                          ? formatBalance(parsedBalance)
                           : '0'}
                       </span>
                       <Button
@@ -607,7 +611,7 @@ const TokenSwap = () => {
                     <Loader2 className="h-6 w-6 animate-spin text-[var(--text-secondary)]" />
                   ) : (
                     <span className="text-3xl font-bold text-[var(--text-primary)]">
-                      {quote ? parseFloat(quote.outputAmount).toLocaleString(undefined, { maximumFractionDigits: 9 }) : '0.0'}
+                      {quote ? formatBalance(quote.outputAmount) : '0.0'}
                     </span>
                   )}
                 </div>
@@ -881,9 +885,9 @@ const TokenSwap = () => {
                   <p className="font-mono break-all">
                     <span className="text-[var(--text-primary)]">By:</span> {result.swappedBy}
                   </p>
-                  <p>Swapped {result.amountIn} for {parseFloat(result.grossOut).toLocaleString(undefined, { maximumFractionDigits: 9 })} {result.toSymbol}</p>
-                  <p className="text-destructive/90">Fee paid: {parseFloat(result.feePaid).toLocaleString(undefined, { maximumFractionDigits: 9 })} {result.toSymbol}</p>
-                  <p className="text-accent font-bold">Net received: {parseFloat(result.netOut).toLocaleString(undefined, { maximumFractionDigits: 9 })} {result.toSymbol}</p>
+                  <p>Swapped {result.amountIn} for {formatBalance(result.grossOut)} {result.toSymbol}</p>
+                  <p className="text-destructive/90">Fee paid: {formatBalance(result.feePaid)} {result.toSymbol}</p>
+                  <p className="text-accent font-bold">Net received: {formatBalance(result.netOut)} {result.toSymbol}</p>
                 </div>
               </div>
             </AlertDescription>

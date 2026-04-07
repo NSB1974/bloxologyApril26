@@ -279,11 +279,9 @@ export const BaseAuthProvider = ({ children }) => {
       if (result.success && result.data && result.data.native) {
         const native = result.data.native;
         if (native.balanceEth !== undefined && native.balanceEth !== null) {
-          const ethStr = Number(native.balanceEth);
-          if (!Number.isNaN(ethStr)) {
-            return ethStr.toFixed(6);
-          }
-          return '0.0000';
+          const ethStr = String(native.balanceEth);
+          // Return full precision string — let display components format as needed
+          return ethStr;
         }
       }
 
