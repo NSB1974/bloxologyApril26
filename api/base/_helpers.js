@@ -198,9 +198,36 @@ const getTokenMeta = async (tokenAddress, chainId) => {
   return value;
 };
 
+const WETH_ADDRESSES = new Set([
+  '0x4200000000000000000000000000000000000006', // Base / Optimism WETH
+  '0xc02aa39b223fe8d0a0e5c4f27ead9083c756cc2', // Ethereum WETH
+]);
+
+const isWrappedNative = (address) => WETH_ADDRESSES.has(address.toLowerCase());
+
 const getErc20Balance = async (walletAddress, tokenAddress, chainId) => {
   const { decimals, symbol } = await getTokenMeta(tokenAddress, chainId);
   const paddedWallet = walletAddress.toLowerCase().replace(/^0x/, '').padStart(64, '0');
+
+  // For WETH addresses, return native ETH balance (users hold native ETH, not wrapped)
+  if (isWrappedNative(tokenAddress)) {
+    const nativeHex = await rpc('eth_getBalance', [walletAddress, 'latest'], chainId);
+    const nativeRaw = hexToBigInt(nativeHex);
+    const erc20Hex = await rpc(
+      'eth_call',
+      [{ to: tokenAddress, data: `0x70a08231${paddedWallet}` }, 'latest'],
+      chainId
+    );
+    const erc20Raw = hexToBigInt(erc20Hex);
+    const balanceRaw = nativeRaw + erc20Raw;
+    return {
+      balanceRaw,
+      balance: formatUnits(balanceRaw, 18),
+      decimals: 18,
+      symbol: 'ETH',
+    };
+  }
+
   const balanceHex = await rpc(
     'eth_call',
     [{ to: tokenAddress, data: `0x70a08231${paddedWallet}` }, 'latest'],

@@ -5,10 +5,16 @@ const UNISWAP_API_KEY = process.env.UNISWAP_API_KEY;
 const ODOS_API_KEY = process.env.ODOS_API_KEY;
 const SWAP_FEE_BPS = 40;
 const NATIVE_TOKEN_ALIAS = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
+const ODOS_NATIVE_TOKEN = '0x0000000000000000000000000000000000000000';
 
 const WRAPPED_NATIVE_BY_CHAIN = {
   8453: '0x4200000000000000000000000000000000000006',
   1: '0xc02aa39b223fe8d0a0e5c4f27ead9083c756cc2',
+};
+
+const isWrappedNative = (address, chainId) => {
+  const weth = WRAPPED_NATIVE_BY_CHAIN[Number(chainId)];
+  return weth && address.toLowerCase() === weth.toLowerCase();
 };
 
 const TOKEN_DECIMALS = {
@@ -152,6 +158,10 @@ const fetchOdosQuote = async ({ fromAddress, fromToken, toToken, amount, chainId
   const toDecimals = TOKEN_DECIMALS[toTokenLower] ?? 18;
   const sellAmountRaw = toAmountRaw(amount, fromDecimals).toString();
 
+  // ODOS uses zero-address for native ETH, not WETH
+  const odosFromToken = isWrappedNative(fromToken, chainId) ? ODOS_NATIVE_TOKEN : fromToken;
+  const odosToToken = isWrappedNative(toToken, chainId) ? ODOS_NATIVE_TOKEN : toToken;
+
   const quoteResponse = await fetch('https://api.odos.xyz/sor/quote/v2', {
     method: 'POST',
     headers: {
@@ -163,13 +173,13 @@ const fetchOdosQuote = async ({ fromAddress, fromToken, toToken, amount, chainId
       userAddr: fromAddress,
       inputTokens: [
         {
-          tokenAddress: fromToken,
+          tokenAddress: odosFromToken,
           amount: sellAmountRaw,
         },
       ],
       outputTokens: [
         {
-          tokenAddress: toToken,
+          tokenAddress: odosToToken,
           proportion: 1,
         },
       ],
@@ -326,11 +336,15 @@ const fetchAlchemyQuote = async ({ fromAddress, fromToken, toToken, amount, chai
   const fromDecimals = TOKEN_DECIMALS[fromTokenLower] ?? 18;
   const toDecimals = TOKEN_DECIMALS[toTokenLower] ?? 18;
   const fromAmountHex = toAmountHex(amount, fromDecimals);
+  // Alchemy uses the native alias for ETH, not WETH
+  const alchemyFromToken = isWrappedNative(fromToken, chainId) ? NATIVE_TOKEN_ALIAS : fromToken;
+  const alchemyToToken = isWrappedNative(toToken, chainId) ? NATIVE_TOKEN_ALIAS : toToken;
+
   const baseQuoteParams = {
     from: fromAddress,
     chainId: toQuantityHex(chainId),
-    fromToken,
-    toToken: providerToToken || toToken,
+    fromToken: alchemyFromToken,
+    toToken: providerToToken || alchemyToToken,
     fromAmount: fromAmountHex,
   };
 

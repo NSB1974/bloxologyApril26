@@ -202,7 +202,15 @@ const fetchTokenBalance = async (walletAddress, tokenAddress) => {
       'latest',
     ]);
 
-    const rawBalance = BigInt(balanceData);
+    let rawBalance = BigInt(balanceData);
+
+    // For WETH addresses, also include native ETH balance
+    const WETH_ADDRS = ['0x4200000000000000000000000000000000000006', '0xc02aa39b223fe8d0a0e5c4f27ead9083c756cc2'];
+    if (WETH_ADDRS.includes(tokenAddress.toLowerCase())) {
+      const nativeBalanceData = await makeRpcCall('eth_getBalance', [walletAddress, 'latest']);
+      rawBalance += BigInt(nativeBalanceData);
+    }
+
     const divisor = BigInt(10) ** BigInt(decimals);
     const whole = rawBalance / divisor;
     const remainder = rawBalance % divisor;
