@@ -242,8 +242,8 @@ const ContactPage = () => {
                     <Mail className="h-5 w-5 text-primary mt-0.5" />
                     <div>
                       <p className="font-bold text-[var(--text-primary)]">Email</p>
-                      <a href="mailto:support@bloxology.io" className="text-sm text-[var(--text-secondary)] font-medium hover:text-primary transition-colors">
-                        support@bloxology.io
+                      <a href="mailto:support@bloxology.site" className="text-sm text-[var(--text-secondary)] font-medium hover:text-primary transition-colors">
+                        support@bloxology.site
                       </a>
                     </div>
                   </div>

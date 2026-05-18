@@ -14,7 +14,7 @@ This project is configured as a standard web app for the Base App in-app browser
 To make the app visible/discoverable in the Base App ecosystem, complete these in Base.dev:
 
 1. Create or open your project on https://www.base.dev.
-2. Set primary URL to your production domain (`https://www.bloxology.site`).
+2. Set primary URL to your production domain (`https://bloxology.site`).
 3. Fill app metadata:
    - Name
    - Icon
